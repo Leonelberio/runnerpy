@@ -41,8 +41,8 @@ class Script(models.Model):
     )
 
     timeout_seconds = models.PositiveIntegerField(
-        default=300,  # 5 minutes default
-        help_text="Maximum execution time in seconds (default: 5 minutes, max: 24 hours)",
+        default=3600,  # 1 hour default
+        help_text="Maximum execution time in seconds (default: 1 hour, max: 24 hours)",
     )
 
     # Status

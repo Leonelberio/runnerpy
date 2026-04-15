@@ -4,7 +4,7 @@ Supports multiple backends: Console (dev), Resend API (production).
 """
 import logging
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.urls import reverse
 
 logger = logging.getLogger(__name__)
@@ -82,29 +82,7 @@ PyRunner - Python Script Automation
 </body>
 </html>"""
 
-    try:
-        if _should_use_resend():
-            return _send_via_resend(
-                to_email=magic_token.email,
-                subject=subject,
-                text_content=text_message,
-                html_content=html_message,
-            )
-
-        send_mail(
-            subject=subject,
-            message=text_message,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
-            recipient_list=[magic_token.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
-        logger.info(f"Magic link email sent to {magic_token.email}")
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to send magic link email to {magic_token.email}: {e}")
-        return False
+    return _send_email(magic_token.email, subject, text_message, html_message)
 
 
 def send_password_reset_email(request, user, reset_token) -> bool:
@@ -182,28 +160,79 @@ PyRunner - Python Script Automation
 </body>
 </html>"""
 
-    try:
-        if _should_use_resend():
-            return _send_via_resend(
-                to_email=user.email,
-                subject=subject,
-                text_content=text_message,
-                html_content=html_message,
-            )
+    return _send_email(user.email, subject, text_message, html_message)
 
+
+def _get_db_backend_and_from_email():
+    """
+    Returns (backend, from_email) if GlobalSettings has a non-DISABLED email
+    backend configured, else (None, None). Local imports avoid a circular
+    import with core.services.notification_service.
+    """
+    from core.models import GlobalSettings
+    from core.services.notification_service import NotificationService
+
+    gs = GlobalSettings.get_settings()
+    if gs.email_backend == GlobalSettings.EmailBackend.DISABLED:
+        return None, None
+
+    backend = NotificationService._get_email_backend(gs)
+    if backend is None:
+        return None, None
+
+    from_email = (
+        gs.smtp_from_email
+        if gs.email_backend == GlobalSettings.EmailBackend.SMTP
+        else gs.resend_from_email
+    )
+    return backend, from_email
+
+
+def _send_email(to_email: str, subject: str, text_content: str, html_content: str) -> bool:
+    """
+    Unified sender for auth emails.
+    Resolution order: DB-configured backend → env Resend API → Django send_mail().
+    A DB backend failure is NOT retried via env — it is surfaced as False.
+    """
+    backend, from_email = _get_db_backend_and_from_email()
+    if backend is not None:
+        if not from_email:
+            logger.error(
+                f"DB email backend configured but from_email is empty; cannot send to {to_email}"
+            )
+            return False
+        try:
+            msg = EmailMultiAlternatives(
+                subject=subject,
+                body=text_content,
+                from_email=from_email,
+                to=[to_email],
+                connection=backend,
+            )
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+            logger.info(f"Auth email sent to {to_email} via DB backend")
+            return True
+        except Exception as e:
+            logger.error(f"DB backend failed to send auth email to {to_email}: {e}")
+            return False
+
+    if _should_use_resend():
+        return _send_via_resend(to_email, subject, text_content, html_content)
+
+    try:
         send_mail(
             subject=subject,
-            message=text_message,
+            message=text_content,
             from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
-            recipient_list=[user.email],
-            html_message=html_message,
+            recipient_list=[to_email],
+            html_message=html_content,
             fail_silently=False,
         )
-        logger.info(f"Password reset email sent to {user.email}")
+        logger.info(f"Auth email sent to {to_email} via env backend")
         return True
-
     except Exception as e:
-        logger.error(f"Failed to send password reset email to {user.email}: {e}")
+        logger.error(f"Env backend failed to send auth email to {to_email}: {e}")
         return False
 
 
