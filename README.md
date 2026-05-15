@@ -55,10 +55,10 @@ Copy `.env.example` to `.env` and configure:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SECRET_KEY` | Auto-generated | Django secret key |
+| `SECRET_KEY` | **Required** | Django secret key (container exits if unset — see [.env.example](.env.example)) |
+| `ENCRYPTION_KEY` | **Required** | Fernet key for encrypting stored secrets — save this somewhere safe |
 | `DEBUG` | `False` | Debug mode (disable in production) |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Allowed hostnames |
-| `ENCRYPTION_KEY` | Key for encrypting secrets (save this!) |
 | `Q_WORKERS` | `2` | Background task workers |
 
 See [.env.example](.env.example) for all options.
