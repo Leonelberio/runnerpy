@@ -41,9 +41,19 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = _env_csv("ALLOWED_HOSTS", "localhost,127.0.0.1")
-_railway_public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
-if _railway_public_domain and _railway_public_domain not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append(_railway_public_domain)
+
+# Railway: public app domain + internal health-check host (Host: healthcheck.railway.app)
+_on_railway = bool(
+    os.environ.get("RAILWAY_ENVIRONMENT")
+    or os.environ.get("RAILWAY_PUBLIC_DOMAIN")
+    or os.environ.get("RAILWAY_SERVICE_ID")
+)
+for _railway_host in (
+    os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip(),
+    "healthcheck.railway.app" if _on_railway else "",
+):
+    if _railway_host and _railway_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_railway_host)
 
 CSRF_TRUSTED_ORIGINS = _env_csv("CSRF_TRUSTED_ORIGINS")
 if not CSRF_TRUSTED_ORIGINS:
