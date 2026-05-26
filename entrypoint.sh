@@ -26,6 +26,38 @@ if [ -z "$ENCRYPTION_KEY" ]; then
     exit 1
 fi
 
+# Validate Fernet key format before Django loads settings (avoids cryptic tracebacks)
+if ! python -c "
+import os, sys
+from cryptography.fernet import Fernet
+
+key = os.environ.get('ENCRYPTION_KEY', '').strip()
+if not key:
+    sys.exit(1)
+try:
+    Fernet(key.encode())
+except Exception:
+    sys.exit(2)
+"; then
+    exit_code=$?
+    echo ""
+    if [ "$exit_code" -eq 1 ]; then
+        echo "ERROR: ENCRYPTION_KEY is empty after trimming whitespace."
+    else
+        echo "ERROR: ENCRYPTION_KEY is not a valid Fernet key."
+        echo ""
+        echo "Placeholders like 'your-fernet-key-here' will not work."
+        echo "Generate a real key with:"
+        echo "  python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        echo ""
+        echo "Then set that value in your host env (Railway, Coolify, docker-compose — keep it stable —"
+        echo "changing it makes existing encrypted secrets unreadable)."
+    fi
+    echo ""
+    exit 1
+fi
+export ENCRYPTION_KEY="$(python -c "import os; print(os.environ['ENCRYPTION_KEY'].strip())")"
+
 # Run setup (migrations + default environment)
 echo "[*] Running setup..."
 python manage.py setup

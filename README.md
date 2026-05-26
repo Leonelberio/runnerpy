@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/hasanaboulhasan/pyrunner)
-[![Version](https://img.shields.io/badge/Version-1.1.1-green.svg)](https://github.com/hassancs91/PyRunner/releases)
+[![Version](https://img.shields.io/badge/Version-1.1.1-green.svg)](https://github.com/Leonelberio/runnerpy/releases)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/BjkmTn7XSd)
 
 A self-hosted Python script automation platform. Upload a script, schedule it, monitor it — nothing else to configure.
@@ -24,8 +24,8 @@ A self-hosted Python script automation platform. Upload a script, schedule it, m
 
 ```bash
 # Clone the repository
-git clone https://github.com/hassancs91/PyRunner.git
-cd PyRunner
+git clone https://github.com/Leonelberio/runnerpy.git
+cd runnerpy
 
 # Copy environment template
 cp .env.example .env
@@ -36,6 +36,15 @@ docker compose up -d
 ```
 
 Open `http://localhost:8000` in your browser.
+
+### Deploy on Railway
+
+See **[docs/deploy-railway.md](docs/deploy-railway.md)** for a full guide. Summary:
+
+1. Connect this repo in Railway (uses `railway.toml` + `Dockerfile`).
+2. Add a **volume** mounted at `/app/data`.
+3. Set `SECRET_KEY`, `ENCRYPTION_KEY`, `DEBUG=False`, and email settings.
+4. Generate a public domain; `RAILWAY_PUBLIC_DOMAIN` is picked up for `ALLOWED_HOSTS` automatically.
 
 ### Using Docker Hub Image
 

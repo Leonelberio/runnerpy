@@ -6,22 +6,25 @@
 {% block footer %}{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center px-4 py-12">
+<div class="min-h-screen flex items-center justify-center px-4 py-12 relative">
+    <div class="absolute top-4 right-4 sm:top-6 sm:right-6">
+        {% include "cpanel/_theme_toggle.html" %}
+    </div>
     <div class="w-full max-w-md">
         <div class="text-center mb-10">
-            <div class="w-16 h-16 bg-code-accent/20 rounded-2xl flex items-center justify-center mx-auto mb-6 glow-accent">
-                <svg class="w-8 h-8 text-code-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-16 h-16 ui-logo-mark rounded-2xl mx-auto mb-6 shadow-card">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                 </svg>
             </div>
             <h1 class="text-3xl font-bold gradient-text mb-6">PyRunner</h1>
         </div>
 
-        <div class="bg-code-surface border border-code-border rounded-xl p-8">
+        <div class="ui-card p-8">
             <h2 class="text-xl font-semibold text-code-text mb-6 text-center">Sign In</h2>
 
             {% if error_message %}
-                <div class="mb-6 p-4 bg-code-red/10 border border-code-red/30 rounded-lg">
+                <div class="mb-6 ui-alert-error !block">
                     <p class="text-sm text-code-red">{{ error_message }}</p>
                 </div>
             {% endif %}

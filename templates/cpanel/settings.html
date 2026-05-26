@@ -3,10 +3,7 @@
 {% block title %}Settings - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <h1 class="text-2xl font-bold text-code-text mb-8">Settings</h1>
 
         <!-- Tabs -->
@@ -905,8 +902,7 @@
                 </button>
             </div>
         </form>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 
 <script>
 // HTML escape helper to prevent XSS

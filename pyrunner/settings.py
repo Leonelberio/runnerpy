@@ -24,6 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def _env_csv(name: str, default: str = "") -> list[str]:
+    raw = os.environ.get(name, default)
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -35,7 +40,25 @@ SECRET_KEY = os.environ["SECRET_KEY"]
 # Defaults to False for security - set DEBUG=True explicitly for development
 DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = _env_csv("ALLOWED_HOSTS", "localhost,127.0.0.1")
+_railway_public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+if _railway_public_domain and _railway_public_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_public_domain)
+
+CSRF_TRUSTED_ORIGINS = _env_csv("CSRF_TRUSTED_ORIGINS")
+if not CSRF_TRUSTED_ORIGINS:
+    for host in ALLOWED_HOSTS:
+        if host in ("localhost", "127.0.0.1"):
+            CSRF_TRUSTED_ORIGINS.extend(
+                [
+                    f"http://{host}",
+                    f"http://{host}:8000",
+                    f"http://{host}:{os.environ.get('PORT', '8000')}",
+                ]
+            )
+        else:
+            CSRF_TRUSTED_ORIGINS.append(f"https://{host}")
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys(CSRF_TRUSTED_ORIGINS))
 
 
 # Application definition
@@ -281,7 +304,7 @@ SCRIPTS_WORKDIR.mkdir(exist_ok=True)
 
 # Secrets Encryption
 # Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
+ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "").strip()
 
 # Validate ENCRYPTION_KEY
 if not ENCRYPTION_KEY:

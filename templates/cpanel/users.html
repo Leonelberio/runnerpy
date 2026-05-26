@@ -3,10 +3,7 @@
 {% block title %}Users - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-2xl font-bold text-code-text">Users</h1>
             <button type="button"
@@ -191,8 +188,7 @@
                 </button>
             </div>
         </form>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 
 <script>
 function copyInviteLink() {

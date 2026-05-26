@@ -3,18 +3,15 @@
 {% block title %}Scripts - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <!-- Header -->
         <div class="flex items-center justify-between mb-8">
             <div>
-                <h1 class="text-2xl font-bold text-code-text">Scripts</h1>
-                <p class="text-code-muted">Manage your Python scripts</p>
+                <h1 class="text-2xl font-semibold tracking-tight text-code-text">Scripts</h1>
+                <p class="mt-1 text-sm text-code-muted">Manage and schedule your Python automation</p>
             </div>
             <a href="{% url 'cpanel:script_create' %}"
-               class="px-4 py-2 bg-code-accent hover:bg-code-accent/90 text-white font-semibold rounded-lg transition-colors flex items-center space-x-2">
+               class="ui-btn-primary">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                 </svg>
@@ -166,6 +163,5 @@
             </a>
         </div>
         {% endif %}
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 {% endblock %}

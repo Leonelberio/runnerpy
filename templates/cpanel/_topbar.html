@@ -1,0 +1,18 @@
+<div class="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-code-border bg-code-surface/80 backdrop-blur-sm px-6 py-3">
+    <div class="min-w-0 text-sm text-code-muted truncate">
+        {% block topbar_left %}
+        <span class="text-code-text font-medium">{{ user.email }}</span>
+        {% endblock %}
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0">
+        {% include "cpanel/_theme_toggle.html" %}
+        <a href="https://pyrunner.dev/docs/" target="_blank" rel="noopener noreferrer"
+           class="ui-btn-secondary !py-1.5 !px-3 text-xs">
+            Docs
+        </a>
+        <a href="https://github.com/Leonelberio/runnerpy" target="_blank" rel="noopener noreferrer"
+           class="ui-btn-secondary !py-1.5 !px-3 text-xs">
+            GitHub
+        </a>
+    </div>
+</div>

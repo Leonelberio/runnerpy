@@ -3,13 +3,10 @@
 {% block title %}Dashboard - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <!-- System Health Alerts -->
         {% if system_health.worker_status == 'stopped' %}
-        <div class="mb-4 p-4 bg-code-red/20 border border-code-red rounded-lg flex items-center space-x-3">
+        <div class="mb-4 ui-alert-error">
             <svg class="w-5 h-5 text-code-red flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
@@ -22,14 +19,14 @@
         {% endif %}
 
         {% if system_health.schedules_paused %}
-        <div class="mb-4 p-4 bg-code-yellow/20 border border-code-yellow rounded-lg flex items-center space-x-3">
+        <div class="mb-4 ui-alert-warning">
             <svg class="w-5 h-5 text-code-yellow flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
             <div>
                 <span class="font-medium text-code-yellow">Schedules Paused</span>
                 <span class="text-code-muted"> — All scheduled script executions are paused. </span>
-                <a href="{% url 'cpanel:settings' %}" class="text-code-accent hover:underline">Resume in Settings</a>
+                <a href="{% url 'cpanel:settings' %}" class="text-code-link hover:underline font-medium">Resume in Settings</a>
             </div>
         </div>
         {% endif %}
@@ -37,18 +34,18 @@
         <!-- Header -->
         <div class="mb-8 flex items-center justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-code-text">Dashboard</h1>
-                <p class="text-code-muted">Welcome back, <span class="text-code-accent">{{ user.email }}</span></p>
+                <h1 class="text-2xl font-semibold tracking-tight text-code-text">Overview</h1>
+                <p class="mt-1 text-sm text-code-muted">Monitor scripts, runs, and system health</p>
             </div>
             <!-- System Health Indicator -->
-            <div class="flex items-center space-x-2">
-                <div class="flex items-center space-x-2 px-3 py-2 bg-code-surface border border-code-border rounded-lg">
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 px-3 py-2 bg-code-surface border border-code-border rounded-lg shadow-card">
                     <span class="w-2.5 h-2.5 rounded-full {% if system_health.worker_status == 'running' %}bg-code-green{% elif system_health.worker_status == 'stopped' %}bg-code-red{% else %}bg-code-yellow{% endif %}"></span>
                     <span class="text-sm text-code-muted">Workers: </span>
                     <span class="text-sm {% if system_health.worker_status == 'running' %}text-code-green{% elif system_health.worker_status == 'stopped' %}text-code-red{% else %}text-code-yellow{% endif %}">{{ system_health.worker_status_text }}</span>
                 </div>
-                <button onclick="location.reload()" class="p-2 bg-code-surface border border-code-border rounded-lg hover:border-code-accent transition-colors" title="Refresh dashboard">
-                    <svg class="w-4 h-4 text-code-muted hover:text-code-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button onclick="location.reload()" class="p-2 bg-code-surface border border-code-border rounded-lg shadow-card hover:bg-code-nav-hover transition-colors" title="Refresh dashboard">
+                    <svg class="w-4 h-4 text-code-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                     </svg>
                 </button>
@@ -58,7 +55,7 @@
         <!-- Stats Cards - Row 1 -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <!-- Total Scripts -->
-            <a href="{% url 'cpanel:script_list' %}" class="bg-code-surface border border-code-border rounded-xl p-6 hover:border-code-accent transition-colors">
+            <a href="{% url 'cpanel:script_list' %}" class="ui-card-hover p-6">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="text-3xl font-bold text-code-accent">{{ scripts_count }}</div>
@@ -469,8 +466,7 @@
                 </a>
             </div>
         </div>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 {% endblock %}
 
 {% block extra_scripts %}

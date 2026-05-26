@@ -1,0 +1,12 @@
+# Railway deployment — uses the repo Dockerfile (Gunicorn + django-q2 worker)
+# Docs: docs/deploy-railway.md
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+numReplicas = 1

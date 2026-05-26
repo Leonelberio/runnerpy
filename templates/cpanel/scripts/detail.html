@@ -3,10 +3,7 @@
 {% block title %}{{ script.name }} - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <!-- Header -->
         <div class="mb-8">
             <nav class="flex items-center space-x-2 text-sm text-code-muted mb-4">
@@ -438,8 +435,7 @@
             </div>
             {% endif %}
         </div>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script>
@@ -448,10 +444,10 @@ require(['vs/editor/editor.main'], function () {
     const container = document.getElementById('code-viewer-container');
     const codeContent = document.getElementById('code-content');
 
-    monaco.editor.create(container, {
+    const editor = monaco.editor.create(container, {
         value: codeContent.value,
         language: 'python',
-        theme: 'vs-dark',
+        theme: window.PyRunnerTheme ? PyRunnerTheme.monaco() : 'vs',
         fontSize: 14,
         fontFamily: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
         minimap: { enabled: false },
@@ -459,6 +455,10 @@ require(['vs/editor/editor.main'], function () {
         lineNumbers: 'on',
         readOnly: true,
         automaticLayout: true
+    });
+
+    window.addEventListener('pyrunner-theme-change', function () {
+        monaco.editor.setTheme(window.PyRunnerTheme.monaco());
     });
 });
 </script>

@@ -3,10 +3,7 @@
 {% block title %}Services - PyRunner{% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <!-- Header -->
         <div class="mb-8">
             <h1 class="text-2xl font-bold text-code-text">Services</h1>
@@ -215,8 +212,7 @@
             <h3 class="text-code-muted font-medium mb-2">More Services Coming Soon</h3>
             <p class="text-sm text-code-muted/70">Additional integrations like SMTP, webhooks, and more will be added here.</p>
         </div>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 
 <script>
 function escapeHtml(text) {

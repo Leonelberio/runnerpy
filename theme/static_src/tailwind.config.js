@@ -1,68 +1,52 @@
 /**
- * This is a minimal config.
- *
- * If you need the full config, get it from here:
- * https://unpkg.com/browse/tailwindcss@latest/stubs/defaultConfig.stub.js
+ * PyRunner UI theme — light/dark via CSS variables (class on <html>)
  */
 
 module.exports = {
     content: [
-        /**
-         * HTML. Paths to Django template files that will contain Tailwind CSS classes.
-         */
-
-        /*  Templates within theme app (<tailwind_app_name>/templates), e.g. base.html. */
         '../templates/**/*.html',
-
-        /*
-         * Main templates directory of the project (BASE_DIR/templates).
-         * Adjust the following line to match your project structure.
-         */
         '../../templates/**/*.html',
-
-        /*
-         * Templates in other django apps (BASE_DIR/<any_app_name>/templates).
-         * Adjust the following line to match your project structure.
-         */
         '../../**/templates/**/*.html',
-
-        /**
-         * JS: If you use Tailwind CSS in JavaScript, uncomment the following lines and make sure
-         * patterns match your project structure.
-         */
-        /* JS 1: Ignore any JavaScript in node_modules folder. */
-        // '!../../**/node_modules',
-        /* JS 2: Process all JavaScript files in the project. */
-        // '../../**/*.js',
-
-        /**
-         * Python: If you use Tailwind CSS classes in Python, uncomment the following line
-         * and make sure the pattern below matches your project structure.
-         */
-        // '../../**/*.py'
     ],
     darkMode: 'class',
     theme: {
         extend: {
+            fontFamily: {
+                sans: [
+                    'Inter',
+                    'ui-sans-serif',
+                    'system-ui',
+                    '-apple-system',
+                    'Segoe UI',
+                    'Roboto',
+                    'Helvetica Neue',
+                    'Arial',
+                    'sans-serif',
+                ],
+            },
+            boxShadow: {
+                card: 'var(--shadow-card)',
+                'card-hover': 'var(--shadow-card-hover)',
+            },
             colors: {
-                'code-bg': '#0d1117',
-                'code-surface': '#161b22',
-                'code-border': '#30363d',
-                'code-text': '#c9d1d9',
-                'code-muted': '#8b949e',
-                'code-accent': '#58a6ff',
-                'code-green': '#3fb950',
-                'code-yellow': '#d29922',
-                'code-red': '#f85149',
+                'code-bg': 'rgb(var(--color-bg) / <alpha-value>)',
+                'code-surface': 'rgb(var(--color-surface) / <alpha-value>)',
+                'code-border': 'rgb(var(--color-border) / <alpha-value>)',
+                'code-text': 'rgb(var(--color-text) / <alpha-value>)',
+                'code-muted': 'rgb(var(--color-muted) / <alpha-value>)',
+                'code-accent': 'rgb(var(--color-accent) / <alpha-value>)',
+                'code-accent-fg': 'rgb(var(--color-accent-fg) / <alpha-value>)',
+                'code-nav-hover': 'rgb(var(--color-nav-hover) / <alpha-value>)',
+                'code-nav-active': 'rgb(var(--color-nav-active) / <alpha-value>)',
+                'code-link': 'rgb(var(--color-link) / <alpha-value>)',
+                'code-green': 'rgb(var(--color-green) / <alpha-value>)',
+                'code-yellow': 'rgb(var(--color-yellow) / <alpha-value>)',
+                'code-red': 'rgb(var(--color-red) / <alpha-value>)',
+                'code-purple': 'rgb(var(--color-purple) / <alpha-value>)',
             },
         },
     },
     plugins: [
-        /**
-         * '@tailwindcss/forms' is the forms plugin that provides a minimal styling
-         * for forms. If you don't like it or have own styling for forms,
-         * comment the line below to disable '@tailwindcss/forms'.
-         */
         require('@tailwindcss/forms'),
         require('@tailwindcss/typography'),
         require('@tailwindcss/aspect-ratio'),

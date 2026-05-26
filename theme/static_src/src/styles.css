@@ -2,45 +2,164 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar styles */
+:root {
+    --color-bg: 244 244 245;
+    --color-surface: 255 255 255;
+    --color-border: 228 228 231;
+    --color-text: 24 24 27;
+    --color-muted: 113 113 122;
+    --color-accent: 24 24 27;
+    --color-accent-fg: 255 255 255;
+    --color-nav-hover: 244 244 245;
+    --color-nav-active: 244 244 245;
+    --color-link: 37 99 235;
+    --color-green: 22 163 74;
+    --color-yellow: 202 138 4;
+    --color-red: 220 38 38;
+    --color-purple: 124 58 237;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --scrollbar-track: 244 244 245;
+    --scrollbar-thumb: 212 212 216;
+    --scrollbar-thumb-hover: 161 161 170;
+}
+
+.dark {
+    --color-bg: 9 9 11;
+    --color-surface: 24 24 27;
+    --color-border: 39 39 42;
+    --color-text: 250 250 250;
+    --color-muted: 161 161 170;
+    --color-accent: 250 250 250;
+    --color-accent-fg: 9 9 11;
+    --color-nav-hover: 39 39 42;
+    --color-nav-active: 39 39 42;
+    --color-link: 96 165 250;
+    --color-green: 74 222 128;
+    --color-yellow: 250 204 21;
+    --color-red: 248 113 113;
+    --color-purple: 192 132 252;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35);
+    --scrollbar-track: 9 9 11;
+    --scrollbar-thumb: 63 63 70;
+    --scrollbar-thumb-hover: 82 82 91;
+}
+
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #161b22;
+    background: rgb(var(--scrollbar-track));
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #30363d;
+    background: rgb(var(--scrollbar-thumb));
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #484f58;
+    background: rgb(var(--scrollbar-thumb-hover));
 }
 
-/* Font settings */
 .font-mono {
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
 
-/* Custom utility classes */
-@layer utilities {
-    .gradient-text {
-        background: linear-gradient(135deg, #58a6ff 0%, #3fb950 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+/* Tag pills */
+.tag-gray { background-color: #f4f4f5; color: #52525b; }
+.tag-red { background-color: #fef2f2; color: #b91c1c; }
+.tag-orange { background-color: #fff7ed; color: #c2410c; }
+.tag-yellow { background-color: #fefce8; color: #a16207; }
+.tag-green { background-color: #f0fdf4; color: #15803d; }
+.tag-blue { background-color: #eff6ff; color: #1d4ed8; }
+.tag-purple { background-color: #f5f3ff; color: #6d28d9; }
+.tag-pink { background-color: #fdf2f8; color: #be185d; }
+
+.dark .tag-gray { background-color: rgba(113, 113, 122, 0.2); color: #d4d4d8; }
+.dark .tag-red { background-color: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+.dark .tag-orange { background-color: rgba(251, 146, 60, 0.15); color: #fdba74; }
+.dark .tag-yellow { background-color: rgba(250, 204, 21, 0.15); color: #fde047; }
+.dark .tag-green { background-color: rgba(74, 222, 128, 0.15); color: #86efac; }
+.dark .tag-blue { background-color: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+.dark .tag-purple { background-color: rgba(192, 132, 252, 0.15); color: #d8b4fe; }
+.dark .tag-pink { background-color: rgba(244, 114, 182, 0.15); color: #f9a8d4; }
+
+.tag-dot-gray { background-color: #71717a; }
+.tag-dot-red { background-color: #dc2626; }
+.tag-dot-orange { background-color: #ea580c; }
+.tag-dot-yellow { background-color: #ca8a04; }
+.tag-dot-green { background-color: #16a34a; }
+.tag-dot-blue { background-color: #2563eb; }
+.tag-dot-purple { background-color: #7c3aed; }
+.tag-dot-pink { background-color: #db2777; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgb(var(--scrollbar-thumb));
+    border-radius: 2px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--scrollbar-thumb-hover));
+}
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--scrollbar-thumb)) transparent;
+}
+
+@layer components {
+    .ui-card {
+        @apply bg-code-surface border border-code-border rounded-lg shadow-card;
     }
 
-    .glow-accent {
-        box-shadow: 0 0 20px rgba(88, 166, 255, 0.3);
+    .ui-card-hover {
+        @apply ui-card transition-all duration-200 hover:shadow-card-hover hover:border-code-muted/40;
+    }
+
+    .ui-btn-primary {
+        @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-code-accent text-code-accent-fg text-sm font-medium rounded-lg hover:opacity-90 transition-opacity;
+    }
+
+    .ui-btn-secondary {
+        @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-code-surface text-code-text text-sm font-medium rounded-lg border border-code-border hover:bg-code-nav-hover transition-colors;
+    }
+
+    .ui-input {
+        @apply w-full px-3 py-2 text-sm bg-code-surface border border-code-border rounded-lg text-code-text placeholder:text-code-muted focus:outline-none focus:ring-2 focus:ring-code-accent/20 focus:border-code-muted;
+    }
+
+    .ui-nav-item {
+        @apply flex items-center gap-3 px-3 py-2 text-sm rounded-md text-code-muted hover:text-code-text hover:bg-code-nav-hover transition-colors;
+    }
+
+    .ui-nav-item-active {
+        @apply flex items-center gap-3 px-3 py-2 text-sm rounded-md bg-code-nav-active text-code-text font-medium;
+    }
+
+    .ui-alert-error {
+        @apply p-4 rounded-lg flex items-center gap-3 bg-red-50 border border-red-200 dark:bg-red-950/40 dark:border-red-900/60;
+    }
+
+    .ui-alert-warning {
+        @apply p-4 rounded-lg flex items-center gap-3 bg-amber-50 border border-amber-200 dark:bg-amber-950/40 dark:border-amber-900/60;
+    }
+
+    .ui-logo-mark {
+        @apply bg-code-accent text-code-accent-fg rounded-lg flex items-center justify-center flex-shrink-0;
     }
 }
 
-/* Toast notification animations */
+@layer utilities {
+    .gradient-text {
+        @apply text-code-text;
+        background: none;
+        -webkit-text-fill-color: currentColor;
+    }
+}
+
 @keyframes toastSlideIn {
     from {
         transform: translateX(100%);

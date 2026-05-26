@@ -9,10 +9,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="flex">
-    {% include "cpanel/_sidebar.html" %}
-
-    <div class="flex-1 p-8">
+{% include "cpanel/_layout_start.html" %}
         <!-- Header -->
         <div class="mb-8">
             <nav class="flex items-center space-x-2 text-sm text-code-muted mb-4">
@@ -214,6 +211,5 @@
                 {% endif %}
             </div>
         </div>
-    </div>
-</div>
+{% include "cpanel/_layout_end.html" %}
 {% endblock %}
