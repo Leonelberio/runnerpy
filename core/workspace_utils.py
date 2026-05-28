@@ -64,22 +64,33 @@ def user_can_access_workspace(user, workspace) -> bool:
 
 def ensure_default_workspace(user):
     """
-    Create a default workspace and membership if the user has none.
-    Used after login and during migration for existing installs.
+    Ensure the user belongs to a workspace, joining the default if needed.
+
+    Migration 0022 may create the Default workspace before any users exist
+    (e.g. fresh Railway deploy + setup wizard). Reuse slug "default" instead
+    of creating a duplicate.
     """
     from core.models import Workspace, WorkspaceMembership
 
-    if WorkspaceMembership.objects.filter(user=user).exists():
-        return Workspace.objects.filter(memberships__user=user).first()
-
-    workspace = Workspace.objects.create(
-        name="Default",
-        slug="default",
-        created_by=user,
+    existing = (
+        Workspace.objects.filter(memberships__user=user)
+        .order_by("name")
+        .first()
     )
-    WorkspaceMembership.objects.create(
+    if existing:
+        return existing
+
+    workspace, _ = Workspace.objects.get_or_create(
+        slug="default",
+        defaults={
+            "name": "Default",
+            "description": "Default workspace",
+            "created_by": user,
+        },
+    )
+    WorkspaceMembership.objects.get_or_create(
         workspace=workspace,
         user=user,
-        role=WorkspaceMembership.Role.ADMIN,
+        defaults={"role": WorkspaceMembership.Role.ADMIN},
     )
     return workspace

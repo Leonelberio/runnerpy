@@ -294,3 +294,51 @@ class SecretImportExportServiceTests(TestCase):
             "changed-value",
         )
 
+
+class EnsureDefaultWorkspaceTests(TestCase):
+    def test_joins_existing_default_workspace_from_migration(self):
+        """Fresh deploy: migration creates Default workspace before any users."""
+        from core.workspace_utils import ensure_default_workspace
+
+        workspace = Workspace.objects.create(
+            name="Default",
+            slug="default",
+            description="Default workspace for existing resources",
+        )
+        user = User.objects.create_user(
+            username="admin",
+            email="admin@example.com",
+            password="testpass123",
+        )
+
+        result = ensure_default_workspace(user)
+
+        self.assertEqual(result.pk, workspace.pk)
+        self.assertEqual(Workspace.objects.filter(slug="default").count(), 1)
+        self.assertTrue(
+            WorkspaceMembership.objects.filter(
+                workspace=workspace,
+                user=user,
+                role=WorkspaceMembership.Role.ADMIN,
+            ).exists()
+        )
+
+    def test_creates_default_workspace_when_none_exists(self):
+        from core.workspace_utils import ensure_default_workspace
+
+        user = User.objects.create_user(
+            username="solo",
+            email="solo@example.com",
+            password="testpass123",
+        )
+
+        result = ensure_default_workspace(user)
+
+        self.assertEqual(result.slug, "default")
+        self.assertTrue(
+            WorkspaceMembership.objects.filter(
+                workspace=result,
+                user=user,
+            ).exists()
+        )
+
