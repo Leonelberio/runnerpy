@@ -14,7 +14,32 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-0.5">
-        <p class="px-3 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-code-muted">Workspace</p>
+        {% if active_workspace %}
+        <div class="px-3 pt-2 pb-2">
+            <p class="text-[11px] font-medium uppercase tracking-wider text-code-muted mb-2">Workspace</p>
+            {% if user_workspaces|length > 1 %}
+            <form method="post" action="{% url 'cpanel:workspace_switch' %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <select name="workspace_id" onchange="this.form.submit()"
+                        class="w-full px-3 py-2 text-sm bg-code-bg border border-code-border rounded-lg text-code-text focus:outline-none focus:ring-2 focus:ring-code-accent/50">
+                    {% for ws in user_workspaces %}
+                    <option value="{{ ws.pk }}" {% if ws.pk == active_workspace.pk %}selected{% endif %}>{{ ws.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% else %}
+            <p class="text-sm font-medium text-code-text truncate px-1">{{ active_workspace.name }}</p>
+            {% endif %}
+            <div class="flex items-center gap-2 mt-2 px-1">
+                <a href="{% url 'cpanel:workspace_create' %}" class="text-xs text-code-accent hover:underline">New workspace</a>
+                <span class="text-code-muted">·</span>
+                <a href="{% url 'cpanel:workspace_settings' %}" class="text-xs text-code-muted hover:text-code-text">Settings</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <p class="px-3 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-code-muted">Overview</p>
 
         <a href="{% url 'cpanel:dashboard' %}"
            class="{% if request.resolver_match.url_name == 'dashboard' %}ui-nav-item-active{% else %}ui-nav-item{% endif %}">
@@ -80,6 +105,14 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
             </svg>
             <span>Data Stores</span>
+        </a>
+
+        <a href="{% url 'cpanel:vectorstore_list' %}"
+           class="{% if 'vectorstore' in request.resolver_match.url_name %}ui-nav-item-active{% else %}ui-nav-item{% endif %}">
+            <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span>Vector Stores</span>
         </a>
 
         <p class="px-3 pt-4 pb-1 text-[11px] font-medium uppercase tracking-wider text-code-muted">System</p>

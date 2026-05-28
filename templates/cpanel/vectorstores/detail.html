@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}{{ vectorstore.name }} - Vector Stores - PyRunner{% endblock %}
+
+{% block content %}
+{% include "cpanel/_layout_start.html" %}
+        <div class="mb-8">
+            <nav class="flex items-center space-x-2 text-sm text-code-muted mb-4">
+                <a href="{% url 'cpanel:vectorstore_list' %}" class="hover:text-code-accent">Vector Stores</a>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span class="text-code-text">{{ vectorstore.name }}</span>
+            </nav>
+            <div class="flex items-start justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-code-text font-mono">{{ vectorstore.name }}</h1>
+                    <p class="text-code-muted">{{ vectorstore.description|default:"No description" }}</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <a href="{% url 'cpanel:vectorstore_edit' pk=vectorstore.pk %}" class="px-4 py-2 bg-code-surface border border-code-border hover:border-code-accent text-code-text rounded-lg transition-colors">Edit</a>
+                    <form method="post" action="{% url 'cpanel:vectorstore_delete' pk=vectorstore.pk %}" onsubmit="return confirm('Delete {{ vectorstore.name }} and all vectors?');">
+                        {% csrf_token %}
+                        <button type="submit" class="px-4 py-2 bg-code-red/10 border border-code-red/30 hover:bg-code-red/20 text-code-red rounded-lg transition-colors">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if messages %}
+        <div class="mb-6 space-y-2">
+            {% for message in messages %}
+            <div class="p-4 rounded-lg {% if message.tags == 'error' %}bg-code-red/10 border border-code-red/30 text-code-red{% elif message.tags == 'success' %}bg-code-green/10 border border-code-green/30 text-code-green{% else %}bg-code-accent/10 border border-code-accent/30 text-code-accent{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="bg-code-surface border border-code-border rounded-lg p-4">
+                <p class="text-sm text-code-muted">Dimensions</p>
+                <p class="text-2xl font-bold text-code-text">{{ vectorstore.dimensions }}</p>
+            </div>
+            <div class="bg-code-surface border border-code-border rounded-lg p-4">
+                <p class="text-sm text-code-muted">Documents</p>
+                <p class="text-2xl font-bold text-code-text">{{ stats.doc_count }}</p>
+            </div>
+            <div class="bg-code-surface border border-code-border rounded-lg p-4">
+                <p class="text-sm text-code-muted">Chunks</p>
+                <p class="text-2xl font-bold text-code-text">{{ stats.chunk_count }}</p>
+            </div>
+            <div class="bg-code-surface border border-code-border rounded-lg p-4">
+                <p class="text-sm text-code-muted">Storage</p>
+                <p class="text-2xl font-bold text-code-text">{{ size_display }}</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <div class="bg-code-surface border border-code-border rounded-xl p-6">
+                <h2 class="text-lg font-semibold text-code-text mb-4">Add document chunk</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_document">
+                    {% for field in document_form %}
+                    <div class="mb-4">
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-code-text mb-2">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}<p class="mt-1 text-xs text-code-muted">{{ field.help_text }}</p>{% endif %}
+                        {% if field.errors %}<p class="mt-1 text-sm text-code-red">{{ field.errors.0 }}</p>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="px-4 py-2 bg-code-accent hover:bg-code-accent/90 text-white font-semibold rounded-lg">Add Chunk</button>
+                </form>
+            </div>
+
+            <div class="bg-code-surface border border-code-border rounded-xl p-6">
+                <h2 class="text-lg font-semibold text-code-text mb-4">Search playground</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="search">
+                    {% for field in search_form %}
+                    <div class="mb-4">
+                        <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-code-text mb-2">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<p class="mt-1 text-sm text-code-red">{{ field.errors.0 }}</p>{% endif %}
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="px-4 py-2 bg-code-surface border border-code-border hover:border-code-accent text-code-text rounded-lg">Search</button>
+                </form>
+
+                {% if search_results %}
+                <div class="mt-6 space-y-3">
+                    {% for hit in search_results %}
+                    <div class="p-3 bg-code-bg border border-code-border rounded-lg">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-mono text-xs text-code-accent">{{ hit.doc_id }} #{{ hit.chunk_index }}</span>
+                            <span class="text-xs text-code-muted">score {{ hit.score|floatformat:4 }}</span>
+                        </div>
+                        <p class="text-sm text-code-text">{{ hit.content|truncatechars:200 }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="bg-code-surface border border-code-border rounded-xl overflow-hidden mb-6">
+            <div class="bg-code-bg border-b border-code-border px-6 py-3 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-code-text">Documents</h2>
+                {% if documents %}
+                <form method="post" action="{% url 'cpanel:vectorstore_clear' pk=vectorstore.pk %}" onsubmit="return confirm('Clear all vectors?');">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1 text-sm bg-code-red/10 border border-code-red/30 text-code-red rounded">Clear All</button>
+                </form>
+                {% endif %}
+            </div>
+            {% if documents %}
+            <table class="w-full">
+                <thead class="bg-code-bg border-b border-code-border">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-code-muted uppercase">Document ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-code-muted uppercase">Chunks</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-code-muted uppercase">Preview</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-code-muted uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-code-border">
+                    {% for doc in documents %}
+                    <tr>
+                        <td class="px-6 py-4 font-mono text-code-accent">{{ doc.doc_id }}</td>
+                        <td class="px-6 py-4 text-code-muted text-sm">{{ doc.chunk_count }}</td>
+                        <td class="px-6 py-4 text-code-text text-sm">{{ doc.preview|default:"-" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <form method="post" action="{% url 'cpanel:vectorstore_document_delete' pk=vectorstore.pk doc_id=doc.doc_id %}" class="inline" onsubmit="return confirm('Delete document {{ doc.doc_id }}?');">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3 py-1 text-sm bg-code-red/10 border border-code-red/30 text-code-red rounded">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="p-8 text-center text-code-muted">No documents yet. Add chunks from a script or the form above.</div>
+            {% endif %}
+        </div>
+
+        <div class="p-4 bg-code-bg border border-code-border rounded-lg">
+            <h3 class="text-sm font-medium text-code-text mb-2">Use in scripts</h3>
+            <code class="block p-3 bg-code-surface rounded text-xs font-mono text-code-text whitespace-pre">from pyrunner_vectorstore import VectorStore
+
+store = VectorStore("{{ vectorstore.name }}")
+
+# Add after embedding with your provider (OpenAI, etc.)
+store.add("doc-1", "Hello world", embedding_vector, metadata={"source": "api"})
+
+# RAG retrieval
+hits = store.search(query_embedding, top_k=5)
+for hit in hits:
+    print(hit["score"], hit["content"])</code>
+        </div>
+{% include "cpanel/_layout_end.html" %}
+{% endblock %}

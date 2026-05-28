@@ -90,6 +90,14 @@ class Environment(models.Model):
         related_name="created_environments",
     )
 
+    workspace = models.ForeignKey(
+        "Workspace",
+        on_delete=models.CASCADE,
+        related_name="environments",
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "environments"
         verbose_name = "environment"
@@ -101,11 +109,12 @@ class Environment(models.Model):
         return f"{self.name}{suffix}"
 
     def save(self, *args, **kwargs):
-        # Ensure only one environment is marked as default
+        # Ensure only one environment is marked as default per workspace
         if self.is_default:
-            Environment.objects.filter(is_default=True).exclude(pk=self.pk).update(
-                is_default=False
-            )
+            qs = Environment.objects.filter(is_default=True).exclude(pk=self.pk)
+            if self.workspace_id:
+                qs = qs.filter(workspace_id=self.workspace_id)
+            qs.update(is_default=False)
         super().save(*args, **kwargs)
 
     def get_full_path(self) -> str:

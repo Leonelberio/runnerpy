@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}New Workspace - PyRunner{% endblock %}
+
+{% block content %}
+{% include "cpanel/_layout_start.html" %}
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-code-text">Create Workspace</h1>
+            <p class="text-code-muted">Organize scripts, secrets, and resources in a separate workspace</p>
+        </div>
+
+        <div class="bg-code-surface border border-code-border rounded-xl p-6 max-w-2xl">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-6">
+                    <label for="id_name" class="block text-sm font-medium text-code-text mb-2">{{ form.name.label }}</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}<p class="mt-1 text-sm text-code-red">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="mb-6">
+                    <label for="id_description" class="block text-sm font-medium text-code-text mb-2">{{ form.description.label }}</label>
+                    {{ form.description }}
+                </div>
+
+                <div class="flex items-center justify-end space-x-4 pt-6 border-t border-code-border">
+                    <a href="{% url 'cpanel:dashboard' %}" class="px-4 py-2 border border-code-border rounded-lg text-code-text hover:border-code-accent">Cancel</a>
+                    <button type="submit" class="px-4 py-2 bg-code-accent hover:bg-code-accent/90 text-white font-semibold rounded-lg">Create Workspace</button>
+                </div>
+            </form>
+        </div>
+{% include "cpanel/_layout_end.html" %}
+{% endblock %}

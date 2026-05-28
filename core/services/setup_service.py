@@ -134,7 +134,9 @@ class SetupService:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        from core.models import Environment
+        from core.models import Environment, Workspace
+
+        default_workspace = Workspace.objects.filter(slug="default").first()
 
         # Check if default environment already exists
         existing = Environment.objects.filter(is_default=True).first()
@@ -208,6 +210,8 @@ class SetupService:
         if existing:
             existing.path = env_path
             existing.python_version = python_version
+            if default_workspace and not existing.workspace_id:
+                existing.workspace = default_workspace
             existing.save()
             msg = f"Updated default environment (Python {python_version})"
         else:
@@ -218,6 +222,7 @@ class SetupService:
                 python_version=python_version,
                 is_default=True,
                 is_active=True,
+                workspace=default_workspace,
             )
             msg = f"Created default environment (Python {python_version})"
 

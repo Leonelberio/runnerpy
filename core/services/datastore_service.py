@@ -13,29 +13,24 @@ class DatastoreService:
     """Service for datastore statistics and operations."""
 
     @classmethod
-    def get_datastores_with_stats(cls):
+    def get_datastores_with_stats(cls, workspace=None):
         """
-        Get all datastores annotated with size.
-
-        Returns:
-            QuerySet of DataStore objects with annotations:
-            - size_bytes: Total size of value_json fields in bytes
-
-        Note: entry_count is provided by the DataStore model property.
+        Get datastores annotated with size, optionally scoped to a workspace.
         """
-        return DataStore.objects.annotate(
+        qs = DataStore.objects.all()
+        if workspace is not None:
+            qs = qs.filter(workspace=workspace)
+        return qs.annotate(
             size_bytes=Coalesce(Sum(Length("entries__value_json")), 0),
         ).order_by("name")
 
     @classmethod
-    def get_total_size(cls) -> int:
-        """
-        Get total size of all datastore entries in bytes.
-
-        Returns:
-            Total size in bytes
-        """
-        result = DataStoreEntry.objects.aggregate(
+    def get_total_size(cls, workspace=None) -> int:
+        """Get total size of datastore entries in bytes."""
+        qs = DataStoreEntry.objects.all()
+        if workspace is not None:
+            qs = qs.filter(datastore__workspace=workspace)
+        result = qs.aggregate(
             total=Coalesce(Sum(Length("value_json")), 0)
         )
         return result["total"]

@@ -19,8 +19,7 @@ class DataStore(models.Model):
 
     name = models.CharField(
         max_length=100,
-        unique=True,
-        help_text="Unique name for this data store (used in scripts)",
+        help_text="Unique name for this data store within a workspace (used in scripts)",
     )
 
     description = models.TextField(
@@ -41,11 +40,25 @@ class DataStore(models.Model):
         related_name="created_datastores",
     )
 
+    workspace = models.ForeignKey(
+        "Workspace",
+        on_delete=models.CASCADE,
+        related_name="datastores",
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "datastores"
         verbose_name = "data store"
         verbose_name_plural = "data stores"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "name"],
+                name="unique_datastore_name_per_workspace",
+            ),
+        ]
 
     def __str__(self):
         return self.name

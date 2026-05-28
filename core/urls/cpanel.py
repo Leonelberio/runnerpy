@@ -13,6 +13,7 @@ from core.views.scripts import (
     script_archive_view,
     script_restore_view,
     script_delete_view,
+    script_duplicate_view,
     schedule_toggle_view,
     schedule_history_view,
     webhook_enable_view,
@@ -52,6 +53,8 @@ from core.views.secrets import (
     secret_create_view,
     secret_edit_view,
     secret_delete_view,
+    secret_export_view,
+    secret_import_view,
 )
 from core.views.tags import (
     tag_list_view,
@@ -69,6 +72,15 @@ from core.views.datastores import (
     datastore_entry_create_view,
     datastore_entry_edit_view,
     datastore_entry_delete_view,
+)
+from core.views.vectorstores import (
+    vectorstore_list_view,
+    vectorstore_create_view,
+    vectorstore_detail_view,
+    vectorstore_edit_view,
+    vectorstore_delete_view,
+    vectorstore_clear_view,
+    vectorstore_document_delete_view,
 )
 from core.views.backup import (
     backup_create_view,
@@ -109,6 +121,11 @@ from core.views.services import (
     s3_settings_view,
     s3_test_connection_view,
 )
+from core.views.workspaces import (
+    workspace_create_view,
+    workspace_switch_view,
+    workspace_settings_view,
+)
 
 app_name = "cpanel"
 
@@ -122,6 +139,7 @@ urlpatterns = [
     path("scripts/create/", script_create_view, name="script_create"),
     path("scripts/<uuid:pk>/", script_detail_view, name="script_detail"),
     path("scripts/<uuid:pk>/edit/", script_edit_view, name="script_edit"),
+    path("scripts/<uuid:pk>/duplicate/", script_duplicate_view, name="script_duplicate"),
     path("scripts/<uuid:pk>/run/", script_run_view, name="script_run"),
     path("scripts/<uuid:pk>/toggle/", script_toggle_view, name="script_toggle"),
     path("scripts/<uuid:pk>/schedule/toggle/", schedule_toggle_view, name="schedule_toggle"),
@@ -164,6 +182,8 @@ urlpatterns = [
     # Secrets
     path("secrets/", secret_list_view, name="secret_list"),
     path("secrets/create/", secret_create_view, name="secret_create"),
+    path("secrets/export/", secret_export_view, name="secret_export"),
+    path("secrets/import/", secret_import_view, name="secret_import"),
     path("secrets/<uuid:pk>/edit/", secret_edit_view, name="secret_edit"),
     path("secrets/<uuid:pk>/delete/", secret_delete_view, name="secret_delete"),
 
@@ -183,6 +203,17 @@ urlpatterns = [
     path("datastores/<uuid:pk>/entries/create/", datastore_entry_create_view, name="datastore_entry_create"),
     path("datastores/<uuid:pk>/entries/<uuid:entry_pk>/edit/", datastore_entry_edit_view, name="datastore_entry_edit"),
     path("datastores/<uuid:pk>/entries/<uuid:entry_pk>/delete/", datastore_entry_delete_view, name="datastore_entry_delete"),
+    path("vectorstores/", vectorstore_list_view, name="vectorstore_list"),
+    path("vectorstores/create/", vectorstore_create_view, name="vectorstore_create"),
+    path("vectorstores/<uuid:pk>/", vectorstore_detail_view, name="vectorstore_detail"),
+    path("vectorstores/<uuid:pk>/edit/", vectorstore_edit_view, name="vectorstore_edit"),
+    path("vectorstores/<uuid:pk>/delete/", vectorstore_delete_view, name="vectorstore_delete"),
+    path("vectorstores/<uuid:pk>/clear/", vectorstore_clear_view, name="vectorstore_clear"),
+    path(
+        "vectorstores/<uuid:pk>/documents/<str:doc_id>/delete/",
+        vectorstore_document_delete_view,
+        name="vectorstore_document_delete",
+    ),
 
     # Settings
     path("settings/", settings_view, name="settings"),
@@ -229,4 +260,9 @@ urlpatterns = [
     path("services/", services_view, name="services"),
     path("services/s3/", s3_settings_view, name="s3_settings"),
     path("services/s3/test/", s3_test_connection_view, name="s3_test_connection"),
+
+    # Workspaces
+    path("workspaces/create/", workspace_create_view, name="workspace_create"),
+    path("workspaces/switch/", workspace_switch_view, name="workspace_switch"),
+    path("workspaces/settings/", workspace_settings_view, name="workspace_settings"),
 ]

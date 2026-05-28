@@ -3,26 +3,29 @@ Data Store management views for the control panel.
 """
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from core.decorators import workspace_required
 from core.forms import DataStoreForm, DataStoreEntryForm
 from core.models import DataStore, DataStoreEntry
 from core.services import DatastoreService
 
 
-@login_required
+def _datastores_for(request):
+    return DataStore.objects.filter(workspace=request.workspace)
+
+
+@workspace_required
 def datastore_list_view(request: HttpRequest) -> HttpResponse:
     """List all data stores."""
-    datastores = DatastoreService.get_datastores_with_stats()
+    datastores = DatastoreService.get_datastores_with_stats(workspace=request.workspace)
 
-    # Format size for each datastore
     for ds in datastores:
         ds.size_display = DatastoreService.format_size(ds.size_bytes)
 
-    total_size = DatastoreService.get_total_size()
+    total_size = DatastoreService.get_total_size(workspace=request.workspace)
     total_size_display = DatastoreService.format_size(total_size)
 
     return render(
@@ -36,75 +39,68 @@ def datastore_list_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 def datastore_create_view(request: HttpRequest) -> HttpResponse:
     """Create a new data store."""
     if request.method == "POST":
-        form = DataStoreForm(request.POST)
+        form = DataStoreForm(request.POST, workspace=request.workspace)
         if form.is_valid():
             datastore = form.save(commit=False)
             datastore.created_by = request.user
+            datastore.workspace = request.workspace
             datastore.save()
 
             messages.success(request, f'Data store "{datastore.name}" created successfully.')
             return redirect("cpanel:datastore_detail", pk=datastore.pk)
     else:
-        form = DataStoreForm()
+        form = DataStoreForm(workspace=request.workspace)
 
     return render(
         request,
         "cpanel/datastores/create.html",
-        {
-            "form": form,
-        },
+        {"form": form},
     )
 
 
-@login_required
+@workspace_required
 def datastore_detail_view(request: HttpRequest, pk) -> HttpResponse:
     """View a data store with all its entries."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
     entries = datastore.entries.all().order_by("key")
 
     return render(
         request,
         "cpanel/datastores/detail.html",
-        {
-            "datastore": datastore,
-            "entries": entries,
-        },
+        {"datastore": datastore, "entries": entries},
     )
 
 
-@login_required
+@workspace_required
 def datastore_edit_view(request: HttpRequest, pk) -> HttpResponse:
     """Edit a data store's metadata."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
 
     if request.method == "POST":
-        form = DataStoreForm(request.POST, instance=datastore)
+        form = DataStoreForm(request.POST, instance=datastore, workspace=request.workspace)
         if form.is_valid():
             form.save()
             messages.success(request, f'Data store "{datastore.name}" updated successfully.')
             return redirect("cpanel:datastore_detail", pk=datastore.pk)
     else:
-        form = DataStoreForm(instance=datastore)
+        form = DataStoreForm(instance=datastore, workspace=request.workspace)
 
     return render(
         request,
         "cpanel/datastores/edit.html",
-        {
-            "form": form,
-            "datastore": datastore,
-        },
+        {"form": form, "datastore": datastore},
     )
 
 
-@login_required
+@workspace_required
 @require_POST
 def datastore_delete_view(request: HttpRequest, pk) -> HttpResponse:
     """Delete a data store and all its entries."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
     name = datastore.name
     datastore.delete()
 
@@ -112,11 +108,11 @@ def datastore_delete_view(request: HttpRequest, pk) -> HttpResponse:
     return redirect("cpanel:datastore_list")
 
 
-@login_required
+@workspace_required
 @require_POST
 def datastore_clear_view(request: HttpRequest, pk) -> HttpResponse:
     """Clear all entries from a data store."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
     count = datastore.entries.count()
     datastore.entries.all().delete()
 
@@ -124,15 +120,10 @@ def datastore_clear_view(request: HttpRequest, pk) -> HttpResponse:
     return redirect("cpanel:datastore_detail", pk=datastore.pk)
 
 
-# =============================================================================
-# Entry Views
-# =============================================================================
-
-
-@login_required
+@workspace_required
 def datastore_entry_create_view(request: HttpRequest, pk) -> HttpResponse:
     """Add a new entry to a data store."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
 
     if request.method == "POST":
         form = DataStoreEntryForm(request.POST, datastore=datastore)
@@ -152,17 +143,14 @@ def datastore_entry_create_view(request: HttpRequest, pk) -> HttpResponse:
     return render(
         request,
         "cpanel/datastores/entry_create.html",
-        {
-            "form": form,
-            "datastore": datastore,
-        },
+        {"form": form, "datastore": datastore},
     )
 
 
-@login_required
+@workspace_required
 def datastore_entry_edit_view(request: HttpRequest, pk, entry_pk) -> HttpResponse:
     """Edit an existing entry."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
     entry = get_object_or_404(DataStoreEntry, pk=entry_pk, datastore=datastore)
 
     if request.method == "POST":
@@ -180,19 +168,15 @@ def datastore_entry_edit_view(request: HttpRequest, pk, entry_pk) -> HttpRespons
     return render(
         request,
         "cpanel/datastores/entry_edit.html",
-        {
-            "form": form,
-            "datastore": datastore,
-            "entry": entry,
-        },
+        {"form": form, "datastore": datastore, "entry": entry},
     )
 
 
-@login_required
+@workspace_required
 @require_POST
 def datastore_entry_delete_view(request: HttpRequest, pk, entry_pk) -> HttpResponse:
     """Delete an entry from a data store."""
-    datastore = get_object_or_404(DataStore, pk=pk)
+    datastore = get_object_or_404(_datastores_for(request), pk=pk)
     entry = get_object_or_404(DataStoreEntry, pk=entry_pk, datastore=datastore)
     key = entry.key
     entry.delete()

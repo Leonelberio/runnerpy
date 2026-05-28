@@ -105,6 +105,7 @@ MIDDLEWARE = [
     "axes.middleware.AxesMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "core.middleware.WorkspaceMiddleware",
     "core.middleware.SetupWizardMiddleware",
 ]
 
@@ -121,6 +122,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.pyrunner_version",
+                "core.context_processors.workspace_context",
             ],
         },
     },

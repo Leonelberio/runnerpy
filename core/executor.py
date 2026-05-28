@@ -25,22 +25,29 @@ logger = logging.getLogger(__name__)
 MAX_OUTPUT_BYTES = 1_000_000
 
 
-def _get_secrets_env() -> dict:
+def _get_secrets_env(script=None) -> dict:
     """
-    Get all secrets as environment variables.
+    Get secrets as environment variables for a script run.
+
+    Args:
+        script: When provided, only secrets linked to this script are included.
 
     Returns:
-        Dict of {key: decrypted_value} for all secrets
+        Dict of {key: decrypted_value}
     """
     secrets_env = {}
 
-    # Only try to get secrets if encryption is configured
     if not EncryptionService.is_configured():
         logger.debug("Encryption not configured - secrets will not be injected")
         return secrets_env
 
     try:
-        for secret in Secret.objects.all():
+        if script is not None:
+            secrets = script.secrets.all()
+        else:
+            secrets = Secret.objects.none()
+
+        for secret in secrets:
             try:
                 secrets_env[secret.key] = secret.get_decrypted_value()
             except Exception as e:
@@ -51,7 +58,7 @@ def _get_secrets_env() -> dict:
     return secrets_env
 
 
-def _build_script_environment(webhook_data: dict | None = None) -> dict:
+def _build_script_environment(script=None, webhook_data: dict | None = None) -> dict:
     """
     Build the environment dict for script execution.
 
@@ -68,8 +75,8 @@ def _build_script_environment(webhook_data: dict | None = None) -> dict:
     # Start with system environment
     env = os.environ.copy()
 
-    # Add secrets (overriding any existing vars with same name)
-    secrets = _get_secrets_env()
+    # Add secrets linked to this script (overriding any existing vars with same name)
+    secrets = _get_secrets_env(script)
     env.update(secrets)
 
     # Add webhook data if present
@@ -84,11 +91,15 @@ def _build_script_environment(webhook_data: dict | None = None) -> dict:
         if "body_json" in webhook_data:
             env["WEBHOOK_BODY_JSON"] = json.dumps(webhook_data["body_json"])
 
-    # Add DataStore support
-    # Set the database path for the pyrunner_datastore module
+    # Add DataStore and VectorStore support
     env["PYRUNNER_DB_PATH"] = str(settings.DATABASES["default"]["NAME"])
+    env["PYRUNNER_VECTORSTORES_ROOT"] = str(
+        Path(settings.BASE_DIR) / "data" / "vectorstores"
+    )
+    if script is not None and script.workspace_id:
+        env["PYRUNNER_WORKSPACE_ID"] = str(script.workspace_id)
 
-    # Add script_helpers to PYTHONPATH so scripts can import pyrunner_datastore
+    # Add script_helpers to PYTHONPATH so scripts can import PyRunner helpers
     helpers_path = str(Path(settings.BASE_DIR) / "core" / "script_helpers")
     existing_pythonpath = env.get("PYTHONPATH", "")
     if existing_pythonpath:
@@ -272,8 +283,8 @@ def execute_run(run: Run, webhook_data: dict | None = None) -> None:
             cmd = [python_path, script_file_path]
 
             # Build environment with secrets and webhook data injected
-            script_env = _build_script_environment(webhook_data)
-            secrets = _get_secrets_env()
+            script_env = _build_script_environment(script=run.script, webhook_data=webhook_data)
+            secrets = _get_secrets_env(run.script)
 
             # Subprocess kwargs
             kwargs = {

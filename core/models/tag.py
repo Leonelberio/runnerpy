@@ -26,8 +26,7 @@ class Tag(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(
         max_length=50,
-        unique=True,
-        help_text="Tag name (must be unique)",
+        help_text="Tag name (must be unique within a workspace)",
     )
     color = models.CharField(
         max_length=20,
@@ -45,11 +44,25 @@ class Tag(models.Model):
         related_name="created_tags",
     )
 
+    workspace = models.ForeignKey(
+        "Workspace",
+        on_delete=models.CASCADE,
+        related_name="tags",
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "tags"
         verbose_name = "tag"
         verbose_name_plural = "tags"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "name"],
+                name="unique_tag_name_per_workspace",
+            ),
+        ]
 
     def __str__(self):
         return self.name

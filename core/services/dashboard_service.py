@@ -13,17 +13,9 @@ class DashboardService:
     """Service for gathering dashboard statistics and widget data."""
 
     @classmethod
-    def get_statistics(cls) -> dict:
+    def get_statistics(cls, script_qs=None, run_qs=None) -> dict:
         """
-        Get all dashboard statistics.
-
-        Returns dict with:
-        - total_scripts: Total number of scripts
-        - active_scripts: Scripts with is_enabled=True
-        - runs_today: Runs created today
-        - runs_this_week: Runs created in last 7 days
-        - success_rate: Percentage of successful runs (or None if no runs)
-        - queue_size: Number of tasks in queue
+        Get dashboard statistics, optionally scoped to querysets.
         """
         from django_q.models import OrmQ
 
@@ -33,22 +25,23 @@ class DashboardService:
         today = now.date()
         week_ago = now - timedelta(days=7)
 
-        # Script counts
-        total_scripts = Script.objects.count()
-        active_scripts = Script.objects.filter(is_enabled=True).count()
+        if script_qs is None:
+            script_qs = Script.objects.all()
+        if run_qs is None:
+            run_qs = Run.objects.all()
 
-        # Run counts
-        total_runs = Run.objects.count()
-        runs_today = Run.objects.filter(created_at__date=today).count()
-        runs_this_week = Run.objects.filter(created_at__gte=week_ago).count()
+        total_scripts = script_qs.count()
+        active_scripts = script_qs.filter(is_enabled=True).count()
 
-        # Success rate
+        total_runs = run_qs.count()
+        runs_today = run_qs.filter(created_at__date=today).count()
+        runs_this_week = run_qs.filter(created_at__gte=week_ago).count()
+
         success_rate = None
         if total_runs > 0:
-            success_count = Run.objects.filter(status=Run.Status.SUCCESS).count()
+            success_count = run_qs.filter(status=Run.Status.SUCCESS).count()
             success_rate = round((success_count / total_runs) * 100, 1)
 
-        # Queue size
         try:
             queue_size = OrmQ.objects.count()
         except Exception:
@@ -64,49 +57,36 @@ class DashboardService:
         }
 
     @classmethod
-    def get_recent_failures(cls, limit: int = 5) -> QuerySet:
-        """
-        Get recent failed and timeout runs.
-
-        Args:
-            limit: Maximum number of runs to return
-
-        Returns:
-            QuerySet of Run objects ordered by most recent
-        """
+    def get_recent_failures(cls, limit: int = 5, run_qs=None) -> QuerySet:
+        """Get recent failed and timeout runs."""
         from core.models import Run
 
+        if run_qs is None:
+            run_qs = Run.objects.all()
+
         return (
-            Run.objects.filter(status__in=[Run.Status.FAILED, Run.Status.TIMEOUT])
+            run_qs.filter(status__in=[Run.Status.FAILED, Run.Status.TIMEOUT])
             .select_related("script")
             .order_by("-created_at")[:limit]
         )
 
     @classmethod
-    def get_upcoming_scheduled_runs(cls, limit: int = 5) -> QuerySet:
-        """
-        Get upcoming scheduled script runs.
-
-        Args:
-            limit: Maximum number of schedules to return
-
-        Returns:
-            QuerySet of ScriptSchedule objects with upcoming runs
-        """
+    def get_upcoming_scheduled_runs(cls, limit: int = 5, workspace=None) -> QuerySet:
+        """Get upcoming scheduled script runs."""
         from core.models import ScriptSchedule
 
         now = timezone.now()
 
-        return (
-            ScriptSchedule.objects.filter(
-                next_run__isnull=False,
-                next_run__gt=now,
-                is_active=True,
-                run_mode__in=[ScriptSchedule.RunMode.INTERVAL, ScriptSchedule.RunMode.DAILY],
-            )
-            .select_related("script")
-            .order_by("next_run")[:limit]
+        qs = ScriptSchedule.objects.filter(
+            next_run__isnull=False,
+            next_run__gt=now,
+            is_active=True,
+            run_mode__in=[ScriptSchedule.RunMode.INTERVAL, ScriptSchedule.RunMode.DAILY],
         )
+        if workspace is not None:
+            qs = qs.filter(script__workspace=workspace)
+
+        return qs.select_related("script").order_by("next_run")[:limit]
 
     @classmethod
     def get_system_health(cls) -> dict:

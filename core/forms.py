@@ -7,7 +7,7 @@ from zoneinfo import available_timezones
 from django import forms
 from django.utils.text import slugify
 
-from core.models import Script, Environment, ScriptSchedule, Tag, DataStore, DataStoreEntry, DataStoreAPIToken
+from core.models import Script, Environment, ScriptSchedule, Tag, DataStore, DataStoreEntry, DataStoreAPIToken, Secret, Workspace, VectorStore
 from core.services import EnvironmentService
 
 
@@ -51,6 +51,7 @@ class ScriptForm(forms.ModelForm):
             "code",
             "environment",
             "tags",
+            "secrets",
             "timeout_seconds",
             "is_enabled",
             "notify_on",
@@ -130,6 +131,7 @@ class ScriptForm(forms.ModelForm):
             "code": "Python Code",
             "environment": "Environment",
             "tags": "Tags",
+            "secrets": "Secrets",
             "timeout_seconds": "Timeout (seconds)",
             "is_enabled": "Enabled",
             "notify_on": "Notify On",
@@ -143,10 +145,17 @@ class ScriptForm(forms.ModelForm):
             "notify_webhook_url": "URL to POST notifications to when script completes",
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, workspace=None, **kwargs):
+        self.workspace = workspace
         super().__init__(*args, **kwargs)
-        # Only show active environments
-        self.fields["environment"].queryset = Environment.objects.filter(is_active=True)
+        env_qs = Environment.objects.filter(is_active=True)
+        if workspace:
+            env_qs = env_qs.filter(workspace=workspace)
+        self.fields["environment"].queryset = env_qs
+        if workspace:
+            self.fields["tags"].queryset = Tag.objects.filter(workspace=workspace).order_by("name")
+            self.fields["secrets"].queryset = Secret.objects.filter(workspace=workspace).order_by("key")
+        self.fields["secrets"].required = False
 
     def clean_code(self):
         code = self.cleaned_data.get("code", "").strip()
@@ -159,6 +168,94 @@ class ScriptForm(forms.ModelForm):
         if timeout is not None and (timeout < 1 or timeout > 86400):
             raise forms.ValidationError("Timeout must be between 1 and 86400 seconds (24 hours).")
         return timeout
+
+
+class ScriptDuplicateForm(forms.Form):
+    """Form for duplicating a script within or across workspaces."""
+
+    target_workspace = forms.ModelChoiceField(
+        queryset=Workspace.objects.none(),
+        widget=forms.Select(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+            }
+        ),
+        label="Target workspace",
+        help_text="Duplicate into this workspace. You must be a member of the target.",
+    )
+    name = forms.CharField(
+        required=False,
+        max_length=200,
+        widget=forms.TextInput(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "placeholder": "Leave blank for an auto-generated name",
+            }
+        ),
+        label="New script name",
+        help_text="Optional. Defaults to “Original Name (Copy)” in the target workspace.",
+    )
+    copy_secrets = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "w-5 h-5 text-code-accent bg-code-bg border-code-border rounded focus:ring-code-accent focus:ring-2",
+            }
+        ),
+        label="Copy linked secrets",
+        help_text="Same workspace: link the same secrets. Other workspace: copy secret values or link if the key already exists there.",
+    )
+    copy_tags = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "w-5 h-5 text-code-accent bg-code-bg border-code-border rounded focus:ring-code-accent focus:ring-2",
+            }
+        ),
+        label="Copy tags",
+        help_text="Same workspace: reuse tags. Other workspace: match by name or create new tags.",
+    )
+    copy_schedule = forms.BooleanField(
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "w-5 h-5 text-code-accent bg-code-bg border-code-border rounded focus:ring-code-accent focus:ring-2",
+            }
+        ),
+        label="Copy schedule",
+        help_text="Copy schedule settings. Webhook triggers are not copied.",
+    )
+
+    def __init__(self, *args, user=None, source_script=None, **kwargs):
+        self.user = user
+        self.source_script = source_script
+        super().__init__(*args, **kwargs)
+
+        from core.workspace_utils import get_user_workspaces
+
+        if user is not None:
+            self.fields["target_workspace"].queryset = get_user_workspaces(user)
+
+        if source_script is not None and not self.is_bound:
+            self.fields["target_workspace"].initial = source_script.workspace_id
+
+    def clean_target_workspace(self):
+        workspace = self.cleaned_data.get("target_workspace")
+        if workspace and self.user and not workspace.memberships.filter(user=self.user).exists():
+            raise forms.ValidationError("You do not have access to that workspace.")
+        return workspace
+
+    def clean_name(self):
+        name = (self.cleaned_data.get("name") or "").strip()
+        target = self.cleaned_data.get("target_workspace")
+        if name and target and Script.objects.filter(workspace=target, name=name).exists():
+            raise forms.ValidationError(
+                f'A script named "{name}" already exists in that workspace.'
+            )
+        return name
 
 
 class TagForm(forms.ModelForm):
@@ -185,16 +282,21 @@ class TagForm(forms.ModelForm):
             "color": "Color",
         }
 
+    def __init__(self, *args, workspace=None, **kwargs):
+        self.workspace = workspace
+        super().__init__(*args, **kwargs)
+
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
             raise forms.ValidationError("Tag name is required.")
-        # Check uniqueness (excluding current instance for edits)
         qs = Tag.objects.filter(name__iexact=name)
+        if self.workspace:
+            qs = qs.filter(workspace=self.workspace)
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            raise forms.ValidationError("A tag with this name already exists.")
+            raise forms.ValidationError("A tag with this name already exists in this workspace.")
         return name
 
 
@@ -642,8 +744,96 @@ class BulkInstallForm(forms.Form):
         return cleaned_data
 
 
+        return value
+
+
+class UserPasswordConfirmForm(forms.Form):
+    """Require the current user's account password before a sensitive action."""
+
+    password = forms.CharField(
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "placeholder": "Your account password",
+                "autocomplete": "current-password",
+            }
+        ),
+        label="Account password",
+        help_text="Confirm your identity to continue.",
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_password(self):
+        password = self.cleaned_data.get("password", "")
+        if not self.user:
+            raise forms.ValidationError("You must be signed in.")
+        if not self.user.has_usable_password():
+            raise forms.ValidationError(
+                "Your account has no password set. Set a password in account settings first."
+            )
+        if not self.user.check_password(password):
+            raise forms.ValidationError("Incorrect password.")
+        return password
+
+
+class SecretExportForm(UserPasswordConfirmForm):
+    """Confirm password before downloading workspace secrets."""
+
+
+class SecretImportForm(UserPasswordConfirmForm):
+    """Upload a secrets export file after password confirmation."""
+
+    secret_file = forms.FileField(
+        label="Secrets export file",
+        help_text="JSON file exported from PyRunner (max 1 MB).",
+        widget=forms.ClearableFileInput(
+            attrs={
+                "class": "block w-full text-sm text-code-text file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-code-accent file:text-white hover:file:bg-code-accent/90",
+                "accept": "application/json,.json",
+            }
+        ),
+    )
+    overwrite_existing = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "w-5 h-5 text-code-accent bg-code-bg border-code-border rounded focus:ring-code-accent focus:ring-2",
+            }
+        ),
+        label="Overwrite existing secrets",
+        help_text="Update secrets that already exist in this workspace. Otherwise they are skipped.",
+    )
+
+    def clean_secret_file(self):
+        uploaded = self.cleaned_data.get("secret_file")
+        if not uploaded:
+            raise forms.ValidationError("Choose a file to import.")
+
+        from core.services.secret_import_export_service import (
+            SecretImportExportError,
+            SecretImportExportService,
+        )
+
+        try:
+            return SecretImportExportService.parse_import_file(uploaded.read())
+        except SecretImportExportError as exc:
+            raise forms.ValidationError(str(exc)) from exc
+
+
 class SecretCreateForm(forms.Form):
     """Form for creating a new secret."""
+
+    def __init__(self, *args, workspace=None, **kwargs):
+        self.workspace = workspace
+        super().__init__(*args, **kwargs)
+        script_qs = Script.objects.filter(archived_at__isnull=True).order_by("name")
+        if workspace:
+            script_qs = script_qs.filter(workspace=workspace)
+        self.fields["scripts"].queryset = script_qs
 
     key = forms.CharField(
         max_length=100,
@@ -684,6 +874,16 @@ class SecretCreateForm(forms.Form):
         help_text="Optional description to help remember what this secret is for",
     )
 
+    scripts = forms.ModelMultipleChoiceField(
+        queryset=Script.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(
+            attrs={"class": "secret-script-checkbox"},
+        ),
+        label="Linked Scripts",
+        help_text="Scripts that receive this secret as an environment variable when they run",
+    )
+
     def clean_key(self):
         """Validate and normalize the key."""
         key = self.cleaned_data.get("key", "").strip().upper()
@@ -717,8 +917,11 @@ class SecretCreateForm(forms.Form):
         # Check if key already exists
         from core.models import Secret
 
-        if Secret.objects.filter(key=key).exists():
-            raise forms.ValidationError(f"A secret with key '{key}' already exists.")
+        qs = Secret.objects.filter(key=key)
+        if self.workspace:
+            qs = qs.filter(workspace=self.workspace)
+        if qs.exists():
+            raise forms.ValidationError(f"A secret with key '{key}' already exists in this workspace.")
 
         return key
 
@@ -740,6 +943,15 @@ class SecretCreateForm(forms.Form):
 
 class SecretEditForm(forms.Form):
     """Form for editing an existing secret (value and description only)."""
+
+    def __init__(self, *args, workspace=None, secret=None, **kwargs):
+        self.workspace = workspace
+        self.secret = secret
+        super().__init__(*args, **kwargs)
+        script_qs = Script.objects.filter(archived_at__isnull=True).order_by("name")
+        if workspace:
+            script_qs = script_qs.filter(workspace=workspace)
+        self.fields["scripts"].queryset = script_qs
 
     value = forms.CharField(
         required=False,
@@ -765,6 +977,16 @@ class SecretEditForm(forms.Form):
             }
         ),
         label="Description",
+    )
+
+    scripts = forms.ModelMultipleChoiceField(
+        queryset=Script.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(
+            attrs={"class": "secret-script-checkbox"},
+        ),
+        label="Linked Scripts",
+        help_text="Scripts that receive this secret as an environment variable when they run",
     )
 
     def clean_value(self):
@@ -1422,6 +1644,10 @@ class DataStoreForm(forms.ModelForm):
             "name": "Used in scripts as: DataStore(\"name\")",
         }
 
+    def __init__(self, *args, workspace=None, **kwargs):
+        self.workspace = workspace
+        super().__init__(*args, **kwargs)
+
     def clean_name(self):
         name = self.cleaned_data.get("name", "").strip()
         if not name:
@@ -1433,11 +1659,54 @@ class DataStoreForm(forms.ModelForm):
             )
         # Check uniqueness (excluding current instance for edits)
         qs = DataStore.objects.filter(name__iexact=name)
+        if self.workspace:
+            qs = qs.filter(workspace=self.workspace)
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            raise forms.ValidationError("A data store with this name already exists.")
+            raise forms.ValidationError("A data store with this name already exists in this workspace.")
         return name
+
+
+class WorkspaceForm(forms.ModelForm):
+    """Form for creating and editing workspaces."""
+
+    class Meta:
+        model = Workspace
+        fields = ["name", "description"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                    "placeholder": "My Team",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                    "rows": 3,
+                    "placeholder": "What is this workspace for?",
+                }
+            ),
+        }
+        labels = {
+            "name": "Workspace Name",
+            "description": "Description",
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get("name", "").strip()
+        if not name:
+            raise forms.ValidationError("Workspace name is required.")
+        return name
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        if not instance.slug:
+            instance.slug = Workspace.generate_unique_slug(instance.name, exclude_pk=instance.pk)
+        if commit:
+            instance.save()
+        return instance
 
 
 class DataStoreEntryForm(forms.Form):
@@ -1509,6 +1778,203 @@ class DataStoreEntryForm(forms.Form):
             raise forms.ValidationError(f"Invalid JSON: {e}")
 
         return value
+
+
+class VectorStoreForm(forms.ModelForm):
+    """Form for creating and editing vector stores."""
+
+    class Meta:
+        model = VectorStore
+        fields = ["name", "description", "dimensions"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                    "placeholder": "agent_memory",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                    "rows": 2,
+                    "placeholder": "RAG knowledge base for support agent",
+                }
+            ),
+            "dimensions": forms.NumberInput(
+                attrs={
+                    "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                    "min": 1,
+                    "max": 8192,
+                }
+            ),
+        }
+        labels = {
+            "name": "Store Name",
+            "description": "Description",
+            "dimensions": "Embedding dimensions",
+        }
+        help_texts = {
+            "name": 'Used in scripts as: VectorStore("name")',
+            "dimensions": "Must match your embedding model (e.g. 1536, 768, 384)",
+        }
+
+    def __init__(self, *args, workspace=None, **kwargs):
+        self.workspace = workspace
+        super().__init__(*args, **kwargs)
+
+    def clean_name(self):
+        name = self.cleaned_data.get("name", "").strip()
+        if not name:
+            raise forms.ValidationError("Store name is required.")
+        if not name.replace("_", "").replace("-", "").isalnum():
+            raise forms.ValidationError(
+                "Name can only contain letters, numbers, underscores, and hyphens."
+            )
+        qs = VectorStore.objects.filter(name__iexact=name)
+        if self.workspace:
+            qs = qs.filter(workspace=self.workspace)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(
+                "A vector store with this name already exists in this workspace."
+            )
+        return name
+
+    def clean_dimensions(self):
+        dimensions = self.cleaned_data.get("dimensions")
+        if dimensions is None or dimensions < 1 or dimensions > 8192:
+            raise forms.ValidationError("Dimensions must be between 1 and 8192.")
+        return dimensions
+
+
+class VectorDocumentForm(forms.Form):
+    """Form for manually adding a vector document chunk from the UI."""
+
+    doc_id = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text font-mono placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "placeholder": "doc-001",
+            }
+        ),
+        label="Document ID",
+    )
+    content = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "rows": 4,
+                "placeholder": "Text content for this chunk",
+            }
+        ),
+        label="Content",
+    )
+    embedding = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text font-mono text-sm placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "rows": 6,
+                "placeholder": "[0.01, -0.02, 0.03, ...]",
+            }
+        ),
+        label="Embedding (JSON array)",
+        help_text="Float array with length equal to the store dimensions",
+    )
+    metadata = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text font-mono text-sm placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "rows": 3,
+                "placeholder": '{"source": "manual"}',
+            }
+        ),
+        label="Metadata (JSON object)",
+    )
+
+    def __init__(self, *args, vectorstore=None, **kwargs):
+        self.vectorstore = vectorstore
+        super().__init__(*args, **kwargs)
+
+    def clean_embedding(self):
+        import json
+
+        raw = self.cleaned_data.get("embedding", "").strip()
+        try:
+            embedding = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"Invalid JSON array: {exc}") from exc
+        if not isinstance(embedding, list) or not embedding:
+            raise forms.ValidationError("Embedding must be a non-empty JSON array.")
+        if not all(isinstance(value, (int, float)) for value in embedding):
+            raise forms.ValidationError("Embedding values must be numbers.")
+        if self.vectorstore and len(embedding) != self.vectorstore.dimensions:
+            raise forms.ValidationError(
+                f"Embedding length must be {self.vectorstore.dimensions}."
+            )
+        return [float(value) for value in embedding]
+
+    def clean_metadata(self):
+        import json
+
+        raw = (self.cleaned_data.get("metadata") or "").strip()
+        if not raw:
+            return {}
+        try:
+            metadata = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"Invalid JSON object: {exc}") from exc
+        if not isinstance(metadata, dict):
+            raise forms.ValidationError("Metadata must be a JSON object.")
+        return metadata
+
+
+class VectorSearchForm(forms.Form):
+    """Search a vector store from the UI using a query embedding."""
+
+    embedding = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text font-mono text-sm placeholder-code-muted/50 focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+                "rows": 4,
+                "placeholder": "[0.01, -0.02, 0.03, ...]",
+            }
+        ),
+        label="Query embedding (JSON array)",
+    )
+    top_k = forms.IntegerField(
+        initial=5,
+        min_value=1,
+        max_value=20,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "w-full px-4 py-3 bg-code-bg border border-code-border rounded-lg text-code-text focus:outline-none focus:ring-2 focus:ring-code-accent/50 focus:border-code-accent",
+            }
+        ),
+        label="Top K results",
+    )
+
+    def __init__(self, *args, vectorstore=None, **kwargs):
+        self.vectorstore = vectorstore
+        super().__init__(*args, **kwargs)
+
+    def clean_embedding(self):
+        import json
+
+        raw = self.cleaned_data.get("embedding", "").strip()
+        try:
+            embedding = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise forms.ValidationError(f"Invalid JSON array: {exc}") from exc
+        if not isinstance(embedding, list) or not embedding:
+            raise forms.ValidationError("Embedding must be a non-empty JSON array.")
+        if self.vectorstore and len(embedding) != self.vectorstore.dimensions:
+            raise forms.ValidationError(
+                f"Embedding length must be {self.vectorstore.dimensions}."
+            )
+        return [float(value) for value in embedding]
 
 
 # =============================================================================

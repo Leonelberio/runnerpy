@@ -6,6 +6,7 @@ This module exports all models for easy importing:
 """
 
 from .user import User, MagicToken, UserInvite, PasswordResetToken
+from .workspace import Workspace, WorkspaceMembership
 from .environment import Environment
 from .script import Script
 from .run import Run
@@ -15,6 +16,7 @@ from .package import PackageOperation
 from .secret import Secret
 from .tag import Tag
 from .datastore import DataStore, DataStoreEntry
+from .vectorstore import VectorStore
 from .api_token import DataStoreAPIToken
 
 __all__ = [
@@ -22,6 +24,8 @@ __all__ = [
     "MagicToken",
     "UserInvite",
     "PasswordResetToken",
+    "Workspace",
+    "WorkspaceMembership",
     "Environment",
     "Script",
     "Run",
@@ -33,5 +37,6 @@ __all__ = [
     "Tag",
     "DataStore",
     "DataStoreEntry",
+    "VectorStore",
     "DataStoreAPIToken",
 ]

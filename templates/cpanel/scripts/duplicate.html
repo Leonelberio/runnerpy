@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Duplicate {{ script.name }} - PyRunner{% endblock %}
+
+{% block content %}
+{% include "cpanel/_layout_start.html" %}
+        <div class="mb-8">
+            <nav class="flex items-center space-x-2 text-sm text-code-muted mb-4">
+                <a href="{% url 'cpanel:script_list' %}" class="hover:text-code-accent">Scripts</a>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <a href="{% url 'cpanel:script_detail' pk=script.pk %}" class="hover:text-code-accent">{{ script.name }}</a>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                <span class="text-code-text">Duplicate</span>
+            </nav>
+
+            <h1 class="text-2xl font-bold text-code-text">Duplicate Script</h1>
+            <p class="text-code-muted mt-1">
+                Create a copy of <span class="text-code-text font-medium">{{ script.name }}</span>
+                in the same workspace or another workspace you belong to.
+            </p>
+        </div>
+
+        <div class="bg-code-surface border border-code-border rounded-xl p-6 max-w-2xl">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-6">
+                    <label for="id_target_workspace" class="block text-sm font-medium text-code-text mb-2">{{ form.target_workspace.label }}</label>
+                    {{ form.target_workspace }}
+                    {% if form.target_workspace.help_text %}<p class="mt-1 text-sm text-code-muted">{{ form.target_workspace.help_text }}</p>{% endif %}
+                    {% if form.target_workspace.errors %}<p class="mt-1 text-sm text-code-red">{{ form.target_workspace.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="mb-6">
+                    <label for="id_name" class="block text-sm font-medium text-code-text mb-2">{{ form.name.label }}</label>
+                    {{ form.name }}
+                    <p class="mt-1 text-sm text-code-muted">
+                        {% if form.name.help_text %}{{ form.name.help_text }} {% endif %}
+                        Suggested in current workspace: <span class="font-mono text-code-text">{{ suggested_name }}</span>
+                    </p>
+                    {% if form.name.errors %}<p class="mt-1 text-sm text-code-red">{{ form.name.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div class="space-y-4 mb-6 p-4 bg-code-bg border border-code-border rounded-lg">
+                    <p class="text-sm font-medium text-code-text">Include with duplicate</p>
+
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        {{ form.copy_secrets }}
+                        <span>
+                            <span class="block text-sm text-code-text">{{ form.copy_secrets.label }}</span>
+                            {% if form.copy_secrets.help_text %}<span class="block text-xs text-code-muted mt-0.5">{{ form.copy_secrets.help_text }}</span>{% endif %}
+                        </span>
+                    </label>
+
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        {{ form.copy_tags }}
+                        <span>
+                            <span class="block text-sm text-code-text">{{ form.copy_tags.label }}</span>
+                            {% if form.copy_tags.help_text %}<span class="block text-xs text-code-muted mt-0.5">{{ form.copy_tags.help_text }}</span>{% endif %}
+                        </span>
+                    </label>
+
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        {{ form.copy_schedule }}
+                        <span>
+                            <span class="block text-sm text-code-text">{{ form.copy_schedule.label }}</span>
+                            {% if form.copy_schedule.help_text %}<span class="block text-xs text-code-muted mt-0.5">{{ form.copy_schedule.help_text }}</span>{% endif %}
+                        </span>
+                    </label>
+                </div>
+
+                {% if script.secrets.exists %}
+                <div class="mb-6 p-4 bg-code-accent/5 border border-code-accent/20 rounded-lg">
+                    <p class="text-sm text-code-text font-medium mb-2">Linked secrets on source script</p>
+                    <div class="flex flex-wrap gap-2">
+                        {% for secret in script.secrets.all %}
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs rounded-full bg-code-accent/10 text-code-accent border border-code-accent/30 font-mono">{{ secret.key }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="flex items-center justify-end space-x-4 pt-6 border-t border-code-border">
+                    <a href="{% url 'cpanel:script_detail' pk=script.pk %}" class="px-4 py-2 border border-code-border rounded-lg text-code-text hover:border-code-accent">Cancel</a>
+                    <button type="submit" class="px-4 py-2 bg-code-accent hover:bg-code-accent/90 text-white font-semibold rounded-lg">Duplicate Script</button>
+                </div>
+            </form>
+        </div>
+{% include "cpanel/_layout_end.html" %}
+{% endblock %}

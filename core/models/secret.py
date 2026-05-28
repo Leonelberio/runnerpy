@@ -19,7 +19,6 @@ class Secret(models.Model):
     # Key name - must be uppercase with underscores (e.g., API_KEY, DATABASE_URL)
     key = models.CharField(
         max_length=100,
-        unique=True,
         help_text="Environment variable name (uppercase, underscores allowed)",
     )
 
@@ -47,14 +46,33 @@ class Secret(models.Model):
         related_name="created_secrets",
     )
 
+    workspace = models.ForeignKey(
+        "Workspace",
+        on_delete=models.CASCADE,
+        related_name="secrets",
+        null=True,
+        blank=True,
+    )
+
     class Meta:
         db_table = "secrets"
         verbose_name = "secret"
         verbose_name_plural = "secrets"
         ordering = ["key"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "key"],
+                name="unique_secret_key_per_workspace",
+            ),
+        ]
 
     def __str__(self):
         return self.key
+
+    @property
+    def script_count(self) -> int:
+        """Return the number of scripts linked to this secret."""
+        return self.scripts.count()
 
     def get_masked_value(self) -> str:
         """

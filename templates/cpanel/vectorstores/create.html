@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Create Vector Store - PyRunner{% endblock %}
+
+{% block content %}
+{% include "cpanel/_layout_start.html" %}
+        <div class="mb-8">
+            <nav class="flex items-center space-x-2 text-sm text-code-muted mb-4">
+                <a href="{% url 'cpanel:vectorstore_list' %}" class="hover:text-code-accent">Vector Stores</a>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span class="text-code-text">Create</span>
+            </nav>
+            <h1 class="text-2xl font-bold text-code-text">Create Vector Store</h1>
+            <p class="text-code-muted">Dedicated SQLite database for embeddings and similarity search</p>
+        </div>
+
+        <div class="bg-code-surface border border-code-border rounded-xl p-6 max-w-2xl">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                <div class="mb-6">
+                    <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-code-text mb-2">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}<p class="mt-1 text-sm text-code-muted">{{ field.help_text }}</p>{% endif %}
+                    {% if field.errors %}<p class="mt-1 text-sm text-code-red">{{ field.errors.0 }}</p>{% endif %}
+                </div>
+                {% endfor %}
+
+                <div class="mb-6 p-4 bg-code-bg border border-code-border rounded-lg text-sm text-code-muted">
+                    <p class="font-medium text-code-text mb-2">Script usage</p>
+                    <code class="block p-3 bg-code-surface rounded font-mono text-code-text text-xs whitespace-pre">from pyrunner_vectorstore import VectorStore
+
+kb = VectorStore("agent_memory")
+results = kb.search(query_embedding, top_k=5)</code>
+                </div>
+
+                <div class="flex items-center justify-end space-x-4 pt-6 border-t border-code-border">
+                    <a href="{% url 'cpanel:vectorstore_list' %}" class="px-4 py-2 border border-code-border rounded-lg text-code-text hover:border-code-accent">Cancel</a>
+                    <button type="submit" class="px-4 py-2 bg-code-accent hover:bg-code-accent/90 text-white font-semibold rounded-lg">Create Vector Store</button>
+                </div>
+            </form>
+        </div>
+{% include "cpanel/_layout_end.html" %}
+{% endblock %}

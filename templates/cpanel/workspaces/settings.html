@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Workspace Settings - PyRunner{% endblock %}
+
+{% block content %}
+{% include "cpanel/_layout_start.html" %}
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-code-text">Workspace Settings</h1>
+            <p class="text-code-muted">{{ workspace.name }}</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-code-surface border border-code-border rounded-xl p-6">
+                <h2 class="text-lg font-semibold text-code-text mb-4">Details</h2>
+                {% if is_admin %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-code-text mb-2">{{ form.name.label }}</label>
+                        {{ form.name }}
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-code-text mb-2">{{ form.description.label }}</label>
+                        {{ form.description }}
+                    </div>
+                    <button type="submit" class="px-4 py-2 bg-code-accent text-white rounded-lg font-semibold">Save</button>
+                </form>
+                {% else %}
+                <dl class="space-y-3 text-sm">
+                    <div><dt class="text-code-muted">Name</dt><dd class="text-code-text font-medium">{{ workspace.name }}</dd></div>
+                    <div><dt class="text-code-muted">Slug</dt><dd class="text-code-text font-mono">{{ workspace.slug }}</dd></div>
+                    {% if workspace.description %}<div><dt class="text-code-muted">Description</dt><dd class="text-code-text">{{ workspace.description }}</dd></div>{% endif %}
+                </dl>
+                {% endif %}
+            </div>
+
+            <div class="bg-code-surface border border-code-border rounded-xl p-6">
+                <h2 class="text-lg font-semibold text-code-text mb-4">Members</h2>
+                <ul class="divide-y divide-code-border">
+                    {% for member in members %}
+                    <li class="py-3 flex items-center justify-between">
+                        <span class="text-code-text">{{ member.user.email }}</span>
+                        <span class="text-xs px-2 py-1 rounded bg-code-bg text-code-muted capitalize">{{ member.role }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="text-code-muted text-sm">No members</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+{% include "cpanel/_layout_end.html" %}
+{% endblock %}

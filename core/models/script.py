@@ -40,6 +40,22 @@ class Script(models.Model):
         help_text="Tags for organizing and filtering scripts",
     )
 
+    # Secrets injected when this script runs (empty = no secrets)
+    secrets = models.ManyToManyField(
+        "Secret",
+        blank=True,
+        related_name="scripts",
+        help_text="Secrets to inject as environment variables when this script runs",
+    )
+
+    workspace = models.ForeignKey(
+        "Workspace",
+        on_delete=models.CASCADE,
+        related_name="scripts",
+        null=True,
+        blank=True,
+    )
+
     timeout_seconds = models.PositiveIntegerField(
         default=3600,  # 1 hour default
         help_text="Maximum execution time in seconds (default: 1 hour, max: 24 hours)",

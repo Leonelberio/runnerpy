@@ -2,12 +2,12 @@
 Environment views for the control panel.
 """
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.views.decorators.http import require_POST
 from django_q.tasks import async_task
 
+from core.decorators import workspace_required
 from core.models import Environment, PackageOperation
 from core.forms import (
     EnvironmentCreateForm,
@@ -18,15 +18,19 @@ from core.forms import (
 from core.services import EnvironmentService
 
 
+def _environments_for(request):
+    return Environment.objects.filter(workspace=request.workspace)
+
+
 def _sanitize_filename(name: str) -> str:
     """Remove characters that could cause header injection or invalid filenames."""
     return "".join(c for c in name if c.isalnum() or c in "._- ").strip()
 
 
-@login_required
+@workspace_required
 def environment_list_view(request: HttpRequest) -> HttpResponse:
     """List all environments."""
-    environments = Environment.objects.all().order_by("-is_default", "name")
+    environments = _environments_for(request).order_by("-is_default", "name")
 
     return render(
         request,
@@ -37,10 +41,10 @@ def environment_list_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 def environment_detail_view(request: HttpRequest, pk) -> HttpResponse:
     """View environment details and associated scripts."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
     scripts = environment.scripts.select_related("created_by").order_by("-updated_at")
 
     # Calculate disk usage
@@ -58,7 +62,7 @@ def environment_detail_view(request: HttpRequest, pk) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 def environment_create_view(request: HttpRequest) -> HttpResponse:
     """Create a new environment."""
     if request.method == "POST":
@@ -79,6 +83,7 @@ def environment_create_view(request: HttpRequest) -> HttpResponse:
                 env = form.save(commit=False)
                 env.path = env_path
                 env.created_by = request.user
+                env.workspace = request.workspace
 
                 # Get version from the created environment
                 version = EnvironmentService._get_python_version(
@@ -107,10 +112,10 @@ def environment_create_view(request: HttpRequest) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 def environment_edit_view(request: HttpRequest, pk) -> HttpResponse:
     """Edit environment details (name/description only)."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
 
     if request.method == "POST":
         form = EnvironmentEditForm(request.POST, instance=environment)
@@ -133,11 +138,11 @@ def environment_edit_view(request: HttpRequest, pk) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 @require_POST
 def environment_delete_view(request: HttpRequest, pk) -> HttpResponse:
     """Delete an environment."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
 
     if not environment.can_delete:
         if environment.is_default:
@@ -162,11 +167,11 @@ def environment_delete_view(request: HttpRequest, pk) -> HttpResponse:
         return redirect("cpanel:environment_detail", pk=pk)
 
 
-@login_required
+@workspace_required
 @require_POST
 def environment_set_default_view(request: HttpRequest, pk) -> HttpResponse:
     """Set an environment as the default."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
 
     environment.is_default = True
     environment.save()  # Model's save() handles unsetting other defaults
@@ -178,10 +183,10 @@ def environment_set_default_view(request: HttpRequest, pk) -> HttpResponse:
 # Package Management Views
 
 
-@login_required
+@workspace_required
 def environment_packages_view(request: HttpRequest, pk) -> HttpResponse:
     """View and manage packages in an environment."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
 
     # Get installed packages
     packages = EnvironmentService.get_installed_packages(environment)
@@ -223,11 +228,11 @@ def environment_packages_view(request: HttpRequest, pk) -> HttpResponse:
     )
 
 
-@login_required
+@workspace_required
 @require_POST
 def package_install_view(request: HttpRequest, pk) -> HttpResponse:
     """Install a package (async via django-q2)."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
     form = PackageInstallForm(request.POST)
 
     if form.is_valid():
@@ -259,11 +264,11 @@ def package_install_view(request: HttpRequest, pk) -> HttpResponse:
     return redirect("cpanel:environment_packages", pk=pk)
 
 
-@login_required
+@workspace_required
 @require_POST
 def package_uninstall_view(request: HttpRequest, pk) -> HttpResponse:
     """Uninstall a package (async via django-q2)."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
     package_name = request.POST.get("package_name", "").strip()
 
     if not package_name:
@@ -296,11 +301,11 @@ def package_uninstall_view(request: HttpRequest, pk) -> HttpResponse:
     return redirect("cpanel:environment_packages", pk=pk)
 
 
-@login_required
+@workspace_required
 @require_POST
 def bulk_install_view(request: HttpRequest, pk) -> HttpResponse:
     """Bulk install packages from requirements."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
     form = BulkInstallForm(request.POST, request.FILES)
 
     if form.is_valid():
@@ -342,10 +347,10 @@ def bulk_install_view(request: HttpRequest, pk) -> HttpResponse:
     return redirect("cpanel:environment_packages", pk=pk)
 
 
-@login_required
+@workspace_required
 def export_requirements_view(request: HttpRequest, pk) -> HttpResponse:
     """Export requirements.txt file."""
-    environment = get_object_or_404(Environment, pk=pk)
+    environment = get_object_or_404(_environments_for(request), pk=pk)
 
     requirements = EnvironmentService.pip_freeze(environment)
 
@@ -355,7 +360,7 @@ def export_requirements_view(request: HttpRequest, pk) -> HttpResponse:
     return response
 
 
-@login_required
+@workspace_required
 def package_operation_status_view(request: HttpRequest, operation_id) -> JsonResponse:
     """AJAX endpoint for checking operation status."""
     operation = get_object_or_404(PackageOperation, pk=operation_id)

@@ -10,6 +10,29 @@ from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 
+class WorkspaceMiddleware:
+    """Attach active workspace to authenticated cpanel requests."""
+
+    CPANEL_PREFIX = "/cpanel/"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.workspace = None
+        if (
+            request.user.is_authenticated
+            and request.path.startswith(self.CPANEL_PREFIX)
+        ):
+            from core.workspace_utils import ensure_default_workspace, resolve_workspace
+
+            workspace = resolve_workspace(request)
+            if workspace is None:
+                workspace = ensure_default_workspace(request.user)
+            request.workspace = workspace
+        return self.get_response(request)
+
+
 class SetupWizardMiddleware:
     """
     Middleware that redirects to setup wizard if initial setup is not completed.
