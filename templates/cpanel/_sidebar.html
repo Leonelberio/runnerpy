@@ -14,15 +14,6 @@
     </div>
 
     <nav class="flex-1 overflow-y-auto scrollbar-thin p-3 space-y-0.5">
-        {% if active_workspace %}
-        <div class="mx-3 mt-2 mb-3 px-3 py-2 rounded-lg bg-code-bg border border-code-border">
-            <p class="text-[10px] font-medium uppercase tracking-wider text-code-muted mb-0.5">Active workspace</p>
-            <p class="text-sm font-semibold text-code-text truncate" title="{{ active_workspace.name }}">{{ active_workspace.name }}</p>
-            <p class="text-[11px] text-code-muted font-mono truncate mt-0.5">{{ active_workspace.slug }}</p>
-            <p class="text-[10px] text-code-muted mt-1.5">Switch workspace in the bar above</p>
-        </div>
-        {% endif %}
-
         <p class="px-3 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wider text-code-muted">Overview</p>
 
         <a href="{% url 'cpanel:dashboard' %}"
