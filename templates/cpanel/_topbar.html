@@ -1,10 +1,14 @@
 <div class="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-code-border bg-code-surface/80 backdrop-blur-sm px-6 py-3">
-    <div class="min-w-0 text-sm text-code-muted truncate">
-        {% block topbar_left %}
-        <span class="text-code-text font-medium">{{ user.email }}</span>
-        {% endblock %}
+    <div class="flex items-center gap-4 min-w-0 flex-1">
+        {% include "cpanel/_workspace_switcher.html" %}
+        {% block topbar_left %}{% endblock %}
     </div>
     <div class="flex items-center gap-2 flex-shrink-0">
+        <a href="{% url 'cpanel:workspace_create' %}"
+           class="ui-btn-secondary !py-1.5 !px-3 text-xs hidden sm:inline-flex"
+           title="New workspace">
+            + Workspace
+        </a>
         {% include "cpanel/_theme_toggle.html" %}
         <a href="https://pyrunner.dev/docs/" target="_blank" rel="noopener noreferrer"
            class="ui-btn-secondary !py-1.5 !px-3 text-xs">

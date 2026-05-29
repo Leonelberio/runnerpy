@@ -1,0 +1,32 @@
+{% if user.is_authenticated %}
+<div class="flex items-center gap-2 min-w-0 max-w-md">
+    <span class="text-xs font-medium uppercase tracking-wide text-code-muted whitespace-nowrap hidden sm:inline">Workspace</span>
+    {% if user_workspaces %}
+    <form method="post" action="{% url 'cpanel:workspace_switch' %}" class="min-w-0 flex-1">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <select id="workspace-switcher"
+                name="workspace_id"
+                onchange="this.form.submit()"
+                aria-label="Active workspace"
+                class="w-full min-w-[10rem] max-w-xs px-3 py-1.5 text-sm font-medium bg-code-bg border border-code-border rounded-lg text-code-text focus:outline-none focus:ring-2 focus:ring-code-accent/50 cursor-pointer">
+            {% for ws in user_workspaces %}
+            <option value="{{ ws.pk }}" {% if active_workspace and ws.pk == active_workspace.pk %}selected{% endif %}>
+                {{ ws.name }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+  {% if active_workspace %}
+    <a href="{% url 'cpanel:workspace_settings' %}"
+       class="text-xs text-code-muted hover:text-code-text whitespace-nowrap hidden md:inline"
+       title="Workspace settings">Settings</a>
+    {% endif %}
+    {% else %}
+    <a href="{% url 'cpanel:workspace_create' %}"
+       class="text-sm text-code-accent hover:underline whitespace-nowrap">
+        Create workspace
+    </a>
+    {% endif %}
+</div>
+{% endif %}

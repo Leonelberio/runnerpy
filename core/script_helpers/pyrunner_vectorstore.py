@@ -50,7 +50,13 @@ class VectorStore:
         );
     """
 
-    def __init__(self, name: str):
+    def __init__(
+        self,
+        name: str,
+        *,
+        dimensions: int = 1536,
+        create_if_missing: bool = True,
+    ):
         self.name = name
         self._db_path = os.environ.get("PYRUNNER_DB_PATH")
         self._workspace_id = os.environ.get("PYRUNNER_WORKSPACE_ID")
@@ -62,18 +68,29 @@ class VectorStore:
             )
         if not self._workspace_id:
             raise RuntimeError(
-                "PYRUNNER_WORKSPACE_ID not set. This module must be run from PyRunner."
+                "PYRUNNER_WORKSPACE_ID not set. Assign this script to a workspace "
+                "(or use the Default workspace) and run it from PyRunner."
             )
         if not self._vectorstores_root:
             raise RuntimeError(
                 "PYRUNNER_VECTORSTORES_ROOT not set. This module must be run from PyRunner."
             )
 
+        os.makedirs(self._vectorstores_root, exist_ok=True)
+
         store = self._lookup_store()
+        if not store and create_if_missing:
+            store = self._create_store(dimensions)
         if not store:
+            available = self._list_store_names()
+            hint = (
+                f" Available in this workspace: {', '.join(available)}."
+                if available
+                else " No vector stores in this workspace yet."
+            )
             raise ValueError(
-                f"Vector store '{name}' does not exist in this workspace. "
-                "Create it in the PyRunner UI first."
+                f"Vector store '{name}' does not exist in this workspace.{hint} "
+                "Create it under Resources → Vector Stores, or pass create_if_missing=True."
             )
 
         self._store_id = store["id"]
@@ -82,10 +99,6 @@ class VectorStore:
             self._vectorstores_root,
             store["sqlite_filename"],
         )
-        if not os.path.exists(self._sqlite_path):
-            raise ValueError(
-                f"Vector store '{name}' database file is missing on disk."
-            )
         self._ensure_schema()
 
     def _main_connection(self) -> sqlite3.Connection:
@@ -124,11 +137,54 @@ class VectorStore:
                 """
                 SELECT id, dimensions, sqlite_filename
                 FROM vectorstores
-                WHERE name = ? AND workspace_id = ?
+                WHERE workspace_id = ? AND LOWER(name) = LOWER(?)
                 """,
-                (self.name, self._workspace_id),
+                (self._workspace_id, self.name),
             ).fetchone()
             return dict(row) if row else None
+
+    def _list_store_names(self) -> list[str]:
+        with self._main_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT name FROM vectorstores
+                WHERE workspace_id = ?
+                ORDER BY name
+                """,
+                (self._workspace_id,),
+            ).fetchall()
+        return [row["name"] for row in rows]
+
+    def _create_store(self, dimensions: int) -> dict:
+        """Register a new vector store for this workspace (used when create_if_missing=True)."""
+        store_id = str(uuid.uuid4())
+        sqlite_filename = f"{store_id}.sqlite"
+        with self._main_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO vectorstores (
+                    id, name, description, dimensions, sqlite_filename,
+                    created_at, updated_at, created_by_id, workspace_id
+                )
+                VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), NULL, ?)
+                """,
+                (
+                    store_id,
+                    self.name,
+                    "Auto-created by script",
+                    dimensions,
+                    sqlite_filename,
+                    self._workspace_id,
+                ),
+            )
+            conn.commit()
+        self._sqlite_path = os.path.join(self._vectorstores_root, sqlite_filename)
+        self._ensure_schema()
+        return {
+            "id": store_id,
+            "dimensions": dimensions,
+            "sqlite_filename": sqlite_filename,
+        }
 
     @staticmethod
     def _pack_embedding(embedding: list[float]) -> bytes:

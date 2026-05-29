@@ -58,6 +58,21 @@ def _get_secrets_env(script=None) -> dict:
     return secrets_env
 
 
+def _resolve_script_workspace_id(script) -> str | None:
+    """Workspace for datastore/vectorstore scoping in scripts."""
+    if script is not None and script.workspace_id:
+        return str(script.workspace_id)
+    try:
+        from core.models import Workspace
+
+        default = Workspace.objects.filter(slug="default").first()
+        if default:
+            return str(default.pk)
+    except Exception as e:
+        logger.debug(f"Could not resolve default workspace for script: {e}")
+    return None
+
+
 def _build_script_environment(script=None, webhook_data: dict | None = None) -> dict:
     """
     Build the environment dict for script execution.
@@ -96,8 +111,9 @@ def _build_script_environment(script=None, webhook_data: dict | None = None) -> 
     env["PYRUNNER_VECTORSTORES_ROOT"] = str(
         Path(settings.BASE_DIR) / "data" / "vectorstores"
     )
-    if script is not None and script.workspace_id:
-        env["PYRUNNER_WORKSPACE_ID"] = str(script.workspace_id)
+    workspace_id = _resolve_script_workspace_id(script)
+    if workspace_id:
+        env["PYRUNNER_WORKSPACE_ID"] = workspace_id
 
     # Add script_helpers to PYTHONPATH so scripts can import PyRunner helpers
     helpers_path = str(Path(settings.BASE_DIR) / "core" / "script_helpers")

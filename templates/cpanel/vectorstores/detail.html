@@ -149,7 +149,7 @@
                 <p class="text-xs font-medium text-code-text mb-1">Vector CRUD</p>
                 <code class="block p-3 bg-code-surface rounded text-xs font-mono text-code-text whitespace-pre">from pyrunner_vectorstore import VectorStore
 
-store = VectorStore("{{ vectorstore.name }}")
+store = VectorStore("{{ vectorstore.name }}")  # auto-creates if missing
 
 store.add("doc-1", "Hello", embedding)
 store.upsert("doc-1", [{"content": "...", "embedding": embedding}])
