@@ -10,8 +10,8 @@ from django.db import models
 
 class VectorStore(models.Model):
     """
-    A named vector database for scripts and AI agents.
-    Embeddings are stored in a dedicated SQLite file per store.
+    A named SQLite vector database for scripts and AI agents.
+    Supports add, search, upsert, delete, and per-session conversation memory.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

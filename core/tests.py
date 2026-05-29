@@ -216,6 +216,55 @@ class VectorstoreServiceTests(TestCase):
         stats = VectorstoreService.get_stats(self.vectorstore)
         self.assertEqual(stats["chunk_count"], 1)
 
+    def test_remember_history_and_clear_session(self):
+        VectorstoreService.remember(
+            self.vectorstore,
+            "session-a",
+            "user",
+            "What is PyRunner?",
+            [1.0, 0.0, 0.0],
+        )
+        VectorstoreService.remember(
+            self.vectorstore,
+            "session-a",
+            "assistant",
+            "A Python automation platform.",
+            [0.9, 0.1, 0.0],
+        )
+
+        history = VectorstoreService.history(self.vectorstore, "session-a")
+        self.assertEqual(len(history), 2)
+        self.assertEqual(history[0]["role"], "user")
+        self.assertEqual(history[1]["role"], "assistant")
+
+        hits = VectorstoreService.search(
+            self.vectorstore,
+            [1.0, 0.0, 0.0],
+            top_k=1,
+            session_id="session-a",
+        )
+        self.assertEqual(len(hits), 1)
+        self.assertIn("PyRunner", hits[0]["content"])
+
+        removed = VectorstoreService.clear_session(self.vectorstore, "session-a")
+        self.assertEqual(removed, 2)
+        self.assertEqual(VectorstoreService.history(self.vectorstore, "session-a"), [])
+
+    def test_get_and_delete_chunk(self):
+        chunk_id = VectorstoreService.add_chunk(
+            self.vectorstore,
+            "doc-x",
+            "single chunk",
+            [0.0, 1.0, 0.0],
+        )
+        row = VectorstoreService.get_chunk(self.vectorstore, chunk_id)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["content"], "single chunk")
+
+        deleted = VectorstoreService.delete_chunk(self.vectorstore, chunk_id)
+        self.assertEqual(deleted, 1)
+        self.assertIsNone(VectorstoreService.get_chunk(self.vectorstore, chunk_id))
+
 
 class SecretImportExportServiceTests(TestCase):
     def setUp(self):

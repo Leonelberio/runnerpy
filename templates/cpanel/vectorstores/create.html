@@ -11,7 +11,7 @@
                 <span class="text-code-text">Create</span>
             </nav>
             <h1 class="text-2xl font-bold text-code-text">Create Vector Store</h1>
-            <p class="text-code-muted">Dedicated SQLite database for embeddings and similarity search</p>
+            <p class="text-code-muted">SQLite vector store for RAG and agent memory (add, search, upsert, delete)</p>
         </div>
 
         <div class="bg-code-surface border border-code-border rounded-xl p-6 max-w-2xl">
@@ -30,8 +30,10 @@
                     <p class="font-medium text-code-text mb-2">Script usage</p>
                     <code class="block p-3 bg-code-surface rounded font-mono text-code-text text-xs whitespace-pre">from pyrunner_vectorstore import VectorStore
 
-kb = VectorStore("agent_memory")
-results = kb.search(query_embedding, top_k=5)</code>
+mem = VectorStore("agent_memory")
+mem.add("doc-1", "fact", embedding)
+mem.search(query_embedding, top_k=5)
+mem.remember("session-1", "user", "Hi", embedding)</code>
                 </div>
 
                 <div class="flex items-center justify-end space-x-4 pt-6 border-t border-code-border">

@@ -142,19 +142,35 @@
             {% endif %}
         </div>
 
-        <div class="p-4 bg-code-bg border border-code-border rounded-lg">
-            <h3 class="text-sm font-medium text-code-text mb-2">Use in scripts</h3>
-            <code class="block p-3 bg-code-surface rounded text-xs font-mono text-code-text whitespace-pre">from pyrunner_vectorstore import VectorStore
+        <div class="p-4 bg-code-bg border border-code-border rounded-lg space-y-4">
+            <h3 class="text-sm font-medium text-code-text">Use in scripts</h3>
+            <p class="text-xs text-code-muted">Embed text with your provider (OpenAI, etc.). Vector length must match {{ vectorstore.dimensions }}.</p>
+            <div>
+                <p class="text-xs font-medium text-code-text mb-1">Vector CRUD</p>
+                <code class="block p-3 bg-code-surface rounded text-xs font-mono text-code-text whitespace-pre">from pyrunner_vectorstore import VectorStore
 
 store = VectorStore("{{ vectorstore.name }}")
 
-# Add after embedding with your provider (OpenAI, etc.)
-store.add("doc-1", "Hello world", embedding_vector, metadata={"source": "api"})
-
-# RAG retrieval
+store.add("doc-1", "Hello", embedding)
+store.upsert("doc-1", [{"content": "...", "embedding": embedding}])
 hits = store.search(query_embedding, top_k=5)
-for hit in hits:
-    print(hit["score"], hit["content"])</code>
+store.get(chunk_id)
+store.get_document("doc-1")
+store.delete("doc-1")
+store.delete_chunk(chunk_id)
+store.clear()</code>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-code-text mb-1">Agent conversation memory</p>
+                <code class="block p-3 bg-code-surface rounded text-xs font-mono text-code-text whitespace-pre">session = "user-123"
+
+store.remember(session, "user", "Hello", embedding)
+store.remember(session, "assistant", "Hi!", embedding)
+
+transcript = store.history(session, limit=20)
+relevant = store.recall(session, query_embedding, top_k=5)
+store.clear_session(session)</code>
+            </div>
         </div>
 {% include "cpanel/_layout_end.html" %}
 {% endblock %}

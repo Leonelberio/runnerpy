@@ -34,10 +34,13 @@ class VectorstoreService:
             content TEXT NOT NULL DEFAULT '',
             metadata_json TEXT NOT NULL DEFAULT '{}',
             embedding BLOB NOT NULL,
+            session_id TEXT,
+            role TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
         CREATE INDEX IF NOT EXISTS idx_vector_chunks_doc_id ON vector_chunks(doc_id);
+        CREATE INDEX IF NOT EXISTS idx_vector_chunks_session_id ON vector_chunks(session_id);
     """
 
     @classmethod
@@ -56,7 +59,44 @@ class VectorstoreService:
     def connect(cls, vectorstore: VectorStore) -> sqlite3.Connection:
         conn = sqlite3.connect(str(cls.sqlite_path(vectorstore)))
         conn.row_factory = sqlite3.Row
+        cls._ensure_schema(conn)
         return conn
+
+    @classmethod
+    def _ensure_schema(cls, conn: sqlite3.Connection) -> None:
+        """Apply schema for new installs and upgrade older SQLite files."""
+        conn.executescript(cls.SCHEMA_SQL)
+        columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(vector_chunks)")
+        }
+        if "session_id" not in columns:
+            conn.execute("ALTER TABLE vector_chunks ADD COLUMN session_id TEXT")
+        if "role" not in columns:
+            conn.execute("ALTER TABLE vector_chunks ADD COLUMN role TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vector_chunks_doc_id ON vector_chunks(doc_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_vector_chunks_session_id "
+            "ON vector_chunks(session_id)"
+        )
+        conn.commit()
+
+    @classmethod
+    def _row_to_hit(cls, row: sqlite3.Row, score: float | None = None) -> dict[str, Any]:
+        hit = {
+            "id": row["id"],
+            "doc_id": row["doc_id"],
+            "chunk_index": row["chunk_index"],
+            "content": row["content"],
+            "metadata": json.loads(row["metadata_json"] or "{}"),
+            "session_id": row["session_id"],
+            "role": row["role"],
+            "created_at": row["created_at"],
+        }
+        if score is not None:
+            hit["score"] = score
+        return hit
 
     @classmethod
     def initialize_store(cls, vectorstore: VectorStore) -> None:
@@ -67,8 +107,7 @@ class VectorstoreService:
 
         db_path = cls.sqlite_path(vectorstore)
         with cls.connect(vectorstore) as conn:
-            conn.executescript(cls.SCHEMA_SQL)
-            conn.commit()
+            cls._ensure_schema(conn)
 
     @classmethod
     def delete_store_file(cls, vectorstore: VectorStore) -> None:
@@ -179,6 +218,8 @@ class VectorstoreService:
         *,
         metadata: dict | None = None,
         chunk_index: int = 0,
+        session_id: str | None = None,
+        role: str | None = None,
     ) -> str:
         cls._validate_embedding(vectorstore, embedding)
         chunk_id = str(uuid.uuid4())
@@ -188,8 +229,9 @@ class VectorstoreService:
             conn.execute(
                 """
                 INSERT INTO vector_chunks
-                    (id, doc_id, chunk_index, content, metadata_json, embedding, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+                    (id, doc_id, chunk_index, content, metadata_json, embedding,
+                     session_id, role, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
                 """,
                 (
                     chunk_id,
@@ -198,10 +240,46 @@ class VectorstoreService:
                     content,
                     metadata_json,
                     cls._pack_embedding(embedding),
+                    session_id,
+                    role,
                 ),
             )
             conn.commit()
         return chunk_id
+
+    @classmethod
+    def get_chunk(cls, vectorstore: VectorStore, chunk_id: str) -> dict[str, Any] | None:
+        with cls.connect(vectorstore) as conn:
+            row = conn.execute(
+                "SELECT * FROM vector_chunks WHERE id = ?",
+                (chunk_id,),
+            ).fetchone()
+        return cls._row_to_hit(row) if row else None
+
+    @classmethod
+    def get_document(
+        cls, vectorstore: VectorStore, doc_id: str
+    ) -> list[dict[str, Any]]:
+        with cls.connect(vectorstore) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM vector_chunks
+                WHERE doc_id = ?
+                ORDER BY chunk_index ASC, created_at ASC
+                """,
+                (doc_id,),
+            ).fetchall()
+        return [cls._row_to_hit(row) for row in rows]
+
+    @classmethod
+    def delete_chunk(cls, vectorstore: VectorStore, chunk_id: str) -> int:
+        with cls.connect(vectorstore) as conn:
+            cursor = conn.execute(
+                "DELETE FROM vector_chunks WHERE id = ?",
+                (chunk_id,),
+            )
+            conn.commit()
+            return cursor.rowcount
 
     @classmethod
     def upsert_document(
@@ -252,17 +330,23 @@ class VectorstoreService:
         *,
         top_k: int = 5,
         min_score: float = 0.0,
+        session_id: str | None = None,
+        doc_id: str | None = None,
     ) -> list[dict[str, Any]]:
         cls._validate_embedding(vectorstore, query_embedding)
         top_k = max(1, min(top_k, 100))
 
+        query = "SELECT * FROM vector_chunks WHERE 1=1"
+        params: list[Any] = []
+        if session_id is not None:
+            query += " AND session_id = ?"
+            params.append(session_id)
+        if doc_id is not None:
+            query += " AND doc_id = ?"
+            params.append(doc_id)
+
         with cls.connect(vectorstore) as conn:
-            rows = conn.execute(
-                """
-                SELECT id, doc_id, chunk_index, content, metadata_json, embedding
-                FROM vector_chunks
-                """
-            ).fetchall()
+            rows = conn.execute(query, params).fetchall()
 
         results = []
         for row in rows:
@@ -270,16 +354,64 @@ class VectorstoreService:
             score = cls._cosine_similarity(query_embedding, embedding)
             if score < min_score:
                 continue
-            results.append(
-                {
-                    "id": row["id"],
-                    "doc_id": row["doc_id"],
-                    "chunk_index": row["chunk_index"],
-                    "content": row["content"],
-                    "metadata": json.loads(row["metadata_json"] or "{}"),
-                    "score": score,
-                }
-            )
+            results.append(cls._row_to_hit(row, score=score))
 
         results.sort(key=lambda item: item["score"], reverse=True)
         return results[:top_k]
+
+    # --- Agent conversation memory (same SQLite store) ---
+
+    @classmethod
+    def remember(
+        cls,
+        vectorstore: VectorStore,
+        session_id: str,
+        role: str,
+        content: str,
+        embedding: list[float],
+        *,
+        metadata: dict | None = None,
+    ) -> str:
+        """Save one conversation turn for later search or history replay."""
+        doc_id = f"{session_id}:{uuid.uuid4()}"
+        return cls.add_chunk(
+            vectorstore,
+            doc_id,
+            content,
+            embedding,
+            metadata=metadata,
+            session_id=session_id,
+            role=role,
+        )
+
+    @classmethod
+    def history(
+        cls,
+        vectorstore: VectorStore,
+        session_id: str,
+        *,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Return recent messages for a session, oldest first."""
+        limit = max(1, min(limit, 500))
+        with cls.connect(vectorstore) as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM vector_chunks
+                WHERE session_id = ?
+                ORDER BY created_at ASC
+                LIMIT ?
+                """,
+                (session_id, limit),
+            ).fetchall()
+        return [cls._row_to_hit(row) for row in rows]
+
+    @classmethod
+    def clear_session(cls, vectorstore: VectorStore, session_id: str) -> int:
+        with cls.connect(vectorstore) as conn:
+            cursor = conn.execute(
+                "DELETE FROM vector_chunks WHERE session_id = ?",
+                (session_id,),
+            )
+            conn.commit()
+            return cursor.rowcount
