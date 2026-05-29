@@ -26,7 +26,9 @@ class VectorstoreError(Exception):
 class VectorstoreService:
     """Manage vector store SQLite databases and similarity search."""
 
-    SCHEMA_SQL = """
+    # Base table matches the original schema; session_id/role are added via ALTER
+    # so existing SQLite files upgrade without failing on CREATE INDEX.
+    BASE_TABLE_SQL = """
         CREATE TABLE IF NOT EXISTS vector_chunks (
             id TEXT PRIMARY KEY,
             doc_id TEXT NOT NULL,
@@ -34,13 +36,9 @@ class VectorstoreService:
             content TEXT NOT NULL DEFAULT '',
             metadata_json TEXT NOT NULL DEFAULT '{}',
             embedding BLOB NOT NULL,
-            session_id TEXT,
-            role TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-        CREATE INDEX IF NOT EXISTS idx_vector_chunks_doc_id ON vector_chunks(doc_id);
-        CREATE INDEX IF NOT EXISTS idx_vector_chunks_session_id ON vector_chunks(session_id);
     """
 
     @classmethod
@@ -65,7 +63,7 @@ class VectorstoreService:
     @classmethod
     def _ensure_schema(cls, conn: sqlite3.Connection) -> None:
         """Apply schema for new installs and upgrade older SQLite files."""
-        conn.executescript(cls.SCHEMA_SQL)
+        conn.executescript(cls.BASE_TABLE_SQL)
         columns = {
             row[1] for row in conn.execute("PRAGMA table_info(vector_chunks)")
         }

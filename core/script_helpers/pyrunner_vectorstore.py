@@ -37,7 +37,7 @@ from typing import Any
 class VectorStore:
     """Workspace-scoped vector database backed by SQLite."""
 
-    _SCHEMA_SQL = """
+    _BASE_TABLE_SQL = """
         CREATE TABLE IF NOT EXISTS vector_chunks (
             id TEXT PRIMARY KEY,
             doc_id TEXT NOT NULL,
@@ -45,13 +45,9 @@ class VectorStore:
             content TEXT NOT NULL DEFAULT '',
             metadata_json TEXT NOT NULL DEFAULT '{}',
             embedding BLOB NOT NULL,
-            session_id TEXT,
-            role TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
-        CREATE INDEX IF NOT EXISTS idx_vector_chunks_doc_id ON vector_chunks(doc_id);
-        CREATE INDEX IF NOT EXISTS idx_vector_chunks_session_id ON vector_chunks(session_id);
     """
 
     def __init__(self, name: str):
@@ -104,7 +100,7 @@ class VectorStore:
 
     def _ensure_schema(self) -> None:
         with self._vector_connection() as conn:
-            conn.executescript(self._SCHEMA_SQL)
+            conn.executescript(self._BASE_TABLE_SQL)
             columns = {
                 row[1] for row in conn.execute("PRAGMA table_info(vector_chunks)")
             }
