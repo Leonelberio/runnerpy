@@ -1,5 +1,5 @@
 {% if user.is_authenticated %}
-<div class="flex items-center gap-2 min-w-0 max-w-md">
+<div class="flex items-center gap-2 min-w-0 max-w-lg">
     <span class="text-xs font-medium uppercase tracking-wide text-code-muted whitespace-nowrap hidden sm:inline">Workspace</span>
     {% if user_workspaces %}
     <form method="post" action="{% url 'cpanel:workspace_switch' %}" class="min-w-0 flex-1">
@@ -17,15 +17,23 @@
             {% endfor %}
         </select>
     </form>
-  {% if active_workspace %}
+    <a href="{% url 'cpanel:workspace_create' %}"
+       class="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-code-border bg-code-bg text-code-muted hover:text-code-text hover:bg-code-border transition-colors"
+       title="New workspace"
+       aria-label="New workspace">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+        </svg>
+    </a>
+    {% if active_workspace %}
     <a href="{% url 'cpanel:workspace_settings' %}"
        class="text-xs text-code-muted hover:text-code-text whitespace-nowrap hidden md:inline"
        title="Workspace settings">Settings</a>
     {% endif %}
     {% else %}
     <a href="{% url 'cpanel:workspace_create' %}"
-       class="text-sm text-code-accent hover:underline whitespace-nowrap">
-        Create workspace
+       class="ui-btn-secondary !py-1.5 !px-3 text-xs whitespace-nowrap">
+        + New workspace
     </a>
     {% endif %}
 </div>

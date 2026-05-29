@@ -4,11 +4,6 @@
         {% block topbar_left %}{% endblock %}
     </div>
     <div class="flex items-center gap-2 flex-shrink-0">
-        <a href="{% url 'cpanel:workspace_create' %}"
-           class="ui-btn-secondary !py-1.5 !px-3 text-xs hidden sm:inline-flex"
-           title="New workspace">
-            + Workspace
-        </a>
         {% include "cpanel/_theme_toggle.html" %}
         <a href="https://pyrunner.dev/docs/" target="_blank" rel="noopener noreferrer"
            class="ui-btn-secondary !py-1.5 !px-3 text-xs">
