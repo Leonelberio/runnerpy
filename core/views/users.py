@@ -1,6 +1,7 @@
 """
 User management views for admin users.
 """
+from django.db import IntegrityError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -51,21 +52,18 @@ def invite_user_view(request: HttpRequest) -> HttpResponse:
             return redirect("cpanel:user_list")
 
         # Check if user already exists
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             messages.error(request, f"User {email} already exists.")
             return redirect("cpanel:user_list")
 
-        # Check if there's already a pending invite
-        existing_invite = UserInvite.objects.filter(
-            email=email, used_at__isnull=True
-        ).first()
-        if existing_invite:
-            messages.warning(
+        try:
+            invite = UserInvite.create_invite(email, created_by=request.user)
+        except IntegrityError:
+            messages.error(
                 request,
-                f"An invite for {email} already exists. Creating a new one will invalidate the old link."
+                f"Could not create invite for {email}. Please try again or revoke the existing invite first.",
             )
-
-        invite = UserInvite.create_invite(email, created_by=request.user)
+            return redirect("cpanel:user_list")
 
         # Generate invite URL
         invite_url = request.build_absolute_uri(

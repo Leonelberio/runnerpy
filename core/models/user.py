@@ -195,13 +195,14 @@ class UserInvite(models.Model):
     @classmethod
     def create_invite(cls, email: str, created_by: User) -> "UserInvite":
         """
-        Create a new invitation. Deletes any existing unused invite for the same email.
+        Create a new invitation. Replaces any prior invite for the same email
+        (pending, expired, or used) so re-invites do not hit the unique constraint.
         """
-        # Delete existing unused invite for this email
-        cls.objects.filter(email__iexact=email, used_at__isnull=True).delete()
+        normalized = email.lower().strip()
+        cls.objects.filter(email__iexact=normalized).delete()
 
         return cls.objects.create(
-            email=email.lower().strip(),
+            email=normalized,
             token=secrets.token_urlsafe(48),
             created_by=created_by,
             expires_at=timezone.now() + timedelta(days=cls.EXPIRY_DAYS),
